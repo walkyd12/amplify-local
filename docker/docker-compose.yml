@@ -1,15 +1,16 @@
 services:
   dynamodb-local:
     image: amazon/dynamodb-local:latest
-    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
+    command: ${DYNAMODB_COMMAND:--jar DynamoDBLocal.jar -sharedDb -dbPath /data}
     ports:
-      - "8000:8000"
+      - "${DYNAMODB_PORT:-8000}:8000"
     volumes:
       - dynamodb-data:/data
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8000/shell/ || exit 1"]
       interval: 5s
       retries: 3
+      start_period: 10s
 
 volumes:
   dynamodb-data:

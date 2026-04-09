@@ -7,6 +7,8 @@ import { writeOutputs } from './generator/outputs.js';
 import { createDynamoClient, createDocClient } from './dynamo/client.js';
 import { createTables } from './dynamo/table-creator.js';
 import { seed, reset } from './dynamo/seeder.js';
+import { startAll, stopAll, checkStatus } from './orchestrator.js';
+import { dockerStart, dockerStop } from './docker.js';
 
 export function run() {
   const program = new Command();
@@ -26,14 +28,40 @@ export function run() {
     .option('--no-rest', 'Disable REST mock server')
     .option('--ephemeral', 'Use in-memory DynamoDB (no persistence)')
     .action(async (options) => {
-      console.log('start: not yet implemented');
+      try {
+        const { cleanup } = await startAll(program.opts(), options);
+
+        // Graceful shutdown on SIGINT / SIGTERM
+        const shutdown = async (signal) => {
+          console.log();
+          console.log(chalk.dim(`Received ${signal}, shutting down...`));
+          await cleanup();
+          process.exit(0);
+        };
+        process.on('SIGINT', () => shutdown('SIGINT'));
+        process.on('SIGTERM', () => shutdown('SIGTERM'));
+      } catch (err) {
+        console.error(chalk.red(`Error: ${err.message}`));
+        if (program.opts().verbose) {
+          console.error(err.stack);
+        }
+        process.exit(1);
+      }
     });
 
   program
     .command('stop')
     .description('Stop all running local services')
     .action(async () => {
-      console.log('stop: not yet implemented');
+      try {
+        await stopAll();
+      } catch (err) {
+        console.error(chalk.red(`Error: ${err.message}`));
+        if (program.opts().verbose) {
+          console.error(err.stack);
+        }
+        process.exit(1);
+      }
     });
 
   program
@@ -186,21 +214,54 @@ export function run() {
     .command('status')
     .description('Check health of running local services')
     .action(async () => {
-      console.log('status: not yet implemented');
+      try {
+        await checkStatus();
+      } catch (err) {
+        console.error(chalk.red(`Error: ${err.message}`));
+        if (program.opts().verbose) {
+          console.error(err.stack);
+        }
+        process.exit(1);
+      }
     });
 
   program
     .command('docker:start')
     .description('Start DynamoDB Local via Docker Compose')
-    .action(async () => {
-      console.log('docker:start: not yet implemented');
+    .option('--ephemeral', 'Run DynamoDB Local in-memory (no persistence)')
+    .action(async (options) => {
+      try {
+        const config = await loadConfig(program.opts());
+        await dockerStart(config, {
+          ephemeral: options.ephemeral || false,
+          verbose: program.opts().verbose || false,
+        });
+      } catch (err) {
+        console.error(chalk.red(`Error: ${err.message}`));
+        if (program.opts().verbose) {
+          console.error(err.stack);
+        }
+        process.exit(1);
+      }
     });
 
   program
     .command('docker:stop')
     .description('Stop DynamoDB Local Docker container')
-    .action(async () => {
-      console.log('docker:stop: not yet implemented');
+    .option('-v, --remove-volumes', 'Remove Docker volumes (deletes all data)')
+    .action(async (options) => {
+      try {
+        await dockerStop({
+          removeVolumes: options.removeVolumes || false,
+          verbose: program.opts().verbose || false,
+        });
+      } catch (err) {
+        console.error(chalk.red(`Error: ${err.message}`));
+        if (program.opts().verbose) {
+          console.error(err.stack);
+        }
+        process.exit(1);
+      }
     });
 
   program.parse();
