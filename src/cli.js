@@ -4,8 +4,9 @@ import ora from 'ora';
 import { loadConfig } from './config.js';
 import { parseSchema } from './parser/index.js';
 import { writeOutputs } from './generator/outputs.js';
-import { createDynamoClient } from './dynamo/client.js';
+import { createDynamoClient, createDocClient } from './dynamo/client.js';
 import { createTables } from './dynamo/table-creator.js';
+import { seed, reset } from './dynamo/seeder.js';
 
 export function run() {
   const program = new Command();
@@ -130,7 +131,55 @@ export function run() {
     .option('--file <path>', 'Path to seed data JSON file')
     .option('--reset', 'Clear all data before seeding')
     .action(async (options) => {
-      console.log('seed: not yet implemented');
+      try {
+        const config = await loadConfig(program.opts());
+        const endpoint = `http://localhost:${config.ports.dynamodb}`;
+
+        if (options.reset) {
+          const spinner = ora('Resetting tables...').start();
+          const parsedSchema = await parseSchema(config.amplifyDir);
+          const dynamoClient = createDynamoClient(endpoint);
+          const resetResult = await reset(parsedSchema, dynamoClient);
+          spinner.succeed('Tables reset');
+
+          if (resetResult.created.length > 0) {
+            console.log(chalk.green(`  Recreated: ${resetResult.created.join(', ')}`));
+          }
+        }
+
+        const seedFile = options.file || config.seed;
+        if (!seedFile) {
+          if (!options.reset) {
+            console.error(chalk.red('Error: No seed file specified. Use --file <path> or set seed in config.'));
+            process.exit(1);
+          }
+          return;
+        }
+
+        const spinner = ora('Seeding data...').start();
+        const parsedSchema = await parseSchema(config.amplifyDir);
+        const docClient = createDocClient(endpoint);
+
+        const { resolve } = await import('path');
+        const resolvedFile = resolve(process.cwd(), seedFile);
+        const result = await seed(resolvedFile, parsedSchema, docClient);
+        spinner.succeed('Seed complete');
+
+        console.log();
+        for (const [model, count] of Object.entries(result.seeded)) {
+          console.log(chalk.green(`  ${model}: ${count} items`));
+        }
+        for (const warning of result.warnings) {
+          console.log(chalk.yellow(`  Warning: ${warning}`));
+        }
+        console.log();
+      } catch (err) {
+        console.error(chalk.red(`Error: ${err.message}`));
+        if (program.opts().verbose) {
+          console.error(err.stack);
+        }
+        process.exit(1);
+      }
     });
 
   program
