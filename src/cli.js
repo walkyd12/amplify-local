@@ -1,5 +1,9 @@
 import { Command } from 'commander';
+import chalk from 'chalk';
+import ora from 'ora';
 import { loadConfig } from './config.js';
+import { parseSchema } from './parser/index.js';
+import { writeOutputs } from './generator/outputs.js';
 
 export function run() {
   const program = new Command();
@@ -32,9 +36,38 @@ export function run() {
   program
     .command('generate')
     .description('Generate amplify_outputs.json from backend definitions')
-    .option('--out <path>', 'Output file path', './amplify_outputs.json')
+    .option('--out <path>', 'Output file path')
     .action(async (options) => {
-      console.log('generate: not yet implemented');
+      try {
+        const config = await loadConfig({ ...program.opts(), ...options });
+        const spinner = ora('Parsing schema...').start();
+
+        const parsedSchema = await parseSchema(config.amplifyDir);
+        spinner.text = 'Generating amplify_outputs.json...';
+
+        const outputs = writeOutputs(parsedSchema, config);
+        spinner.succeed(`Generated ${config.output}`);
+
+        const modelCount = Object.keys(outputs.data.model_introspection.models).length;
+        const enumCount = Object.keys(outputs.data.model_introspection.enums).length;
+        console.log();
+        console.log(`  Models: ${modelCount}`);
+        console.log(`  Enums:  ${enumCount}`);
+        console.log(`  Auth:   ${outputs.data.default_authorization_type}`);
+        if (outputs.storage) {
+          console.log(`  Storage: ${outputs.storage.bucket_name}`);
+        }
+        console.log();
+        console.log(`  Point your app at the local backend:`);
+        console.log(`    export NEXT_PUBLIC_USE_LOCAL_BACKEND=true`);
+        console.log();
+      } catch (err) {
+        console.error(chalk.red(`Error: ${err.message}`));
+        if (program.opts().verbose) {
+          console.error(err.stack);
+        }
+        process.exit(1);
+      }
     });
 
   program
