@@ -4,6 +4,8 @@ import ora from 'ora';
 import { loadConfig } from './config.js';
 import { parseSchema } from './parser/index.js';
 import { writeOutputs } from './generator/outputs.js';
+import { createDynamoClient } from './dynamo/client.js';
+import { createTables } from './dynamo/table-creator.js';
 
 export function run() {
   const program = new Command();
@@ -75,7 +77,51 @@ export function run() {
     .description('Create DynamoDB tables from backend schema')
     .option('--reset', 'Drop and recreate all tables')
     .action(async (options) => {
-      console.log('setup-tables: not yet implemented');
+      try {
+        const config = await loadConfig(program.opts());
+        const spinner = ora('Parsing schema...').start();
+
+        const parsedSchema = await parseSchema(config.amplifyDir);
+        const modelCount = Object.keys(parsedSchema.models).length;
+        spinner.text = `Creating ${modelCount} tables...`;
+
+        const endpoint = `http://localhost:${config.ports.dynamodb}`;
+        const dynamoClient = createDynamoClient(endpoint);
+        const result = await createTables(parsedSchema, dynamoClient, {
+          reset: options.reset || false,
+        });
+
+        spinner.succeed('DynamoDB tables ready');
+        console.log();
+
+        if (result.created.length > 0) {
+          console.log(chalk.green(`  Created: ${result.created.join(', ')}`));
+        }
+        if (result.skipped.length > 0) {
+          console.log(chalk.yellow(`  Skipped (already exist): ${result.skipped.join(', ')}`));
+        }
+        if (result.failed.length > 0) {
+          for (const f of result.failed) {
+            console.log(chalk.red(`  Failed: ${f.table} — ${f.error}`));
+          }
+        }
+
+        // Print GSI summary
+        for (const [name, model] of Object.entries(parsedSchema.models)) {
+          const gsiCount = (model.secondaryIndexes || []).length;
+          if (gsiCount > 0) {
+            const gsiNames = model.secondaryIndexes.map((i) => i.indexName).join(', ');
+            console.log(`  ${name}: ${gsiCount} GSI(s) — ${gsiNames}`);
+          }
+        }
+        console.log();
+      } catch (err) {
+        console.error(chalk.red(`Error: ${err.message}`));
+        if (program.opts().verbose) {
+          console.error(err.stack);
+        }
+        process.exit(1);
+      }
     });
 
   program
