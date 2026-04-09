@@ -1,0 +1,8 @@
+test/
+.github/
+.amplify-local/
+docker/
+TASKS.md
+PROJECT.md
+*.tgz
+.DS_Store

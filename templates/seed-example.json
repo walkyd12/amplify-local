@@ -1,0 +1,47 @@
+{
+  "Category": [
+    { "id": "cat-1", "name": "Electronics", "description": "Electronic devices and accessories" },
+    { "id": "cat-2", "name": "Clothing", "description": "Apparel and fashion items" },
+    { "id": "cat-3", "name": "Groceries", "description": "Food and household essentials" }
+  ],
+  "Product": [
+    {
+      "id": "prod-1",
+      "name": "Wireless Headphones",
+      "price": 79.99,
+      "categoryId": "cat-1",
+      "active": true,
+      "description": "Noise-cancelling Bluetooth headphones"
+    },
+    {
+      "id": "prod-2",
+      "name": "T-Shirt",
+      "price": 24.99,
+      "categoryId": "cat-2",
+      "active": true,
+      "description": "Cotton crew neck t-shirt"
+    },
+    {
+      "id": "prod-3",
+      "name": "Organic Apples",
+      "price": 4.99,
+      "categoryId": "cat-3",
+      "active": true,
+      "description": "Fresh organic apples, 1lb bag"
+    }
+  ],
+  "Order": [
+    {
+      "id": "order-1",
+      "status": "DELIVERED",
+      "total": 104.98,
+      "owner": "admin-uuid-1"
+    },
+    {
+      "id": "order-2",
+      "status": "PENDING",
+      "total": 24.99,
+      "owner": "cust-uuid-1"
+    }
+  ]
+}
