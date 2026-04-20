@@ -42,6 +42,7 @@ function listFilesRecursive(dir, base, prefix = '') {
 
   const entries = readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
+    if (entry.name.endsWith('.__meta__')) continue;
     const fullPath = join(dir, entry.name);
     const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
@@ -173,9 +174,9 @@ export function createStorageServer(config, apiKey) {
   });
 
   // PUT — write file
-  app.put('/:bucket/*', (req, res) => {
+  app.put('/:bucket/*splat', (req, res) => {
     const bucket = req.params.bucket;
-    const key = req.params[0];
+    const key = req.params.splat.join('/');
 
     // Check access
     if (storageConfig && apiKey) {
@@ -203,9 +204,9 @@ export function createStorageServer(config, apiKey) {
   });
 
   // GET — read file
-  app.get('/:bucket/*', (req, res) => {
+  app.get('/:bucket/*splat', (req, res) => {
     const bucket = req.params.bucket;
-    const key = req.params[0];
+    const key = req.params.splat.join('/');
 
     // Check access
     if (storageConfig && apiKey) {
@@ -246,9 +247,9 @@ export function createStorageServer(config, apiKey) {
   });
 
   // DELETE — delete file
-  app.delete('/:bucket/*', (req, res) => {
+  app.delete('/:bucket/*splat', (req, res) => {
     const bucket = req.params.bucket;
-    const key = req.params[0];
+    const key = req.params.splat.join('/');
 
     // Check access
     if (storageConfig && apiKey) {
@@ -275,9 +276,9 @@ export function createStorageServer(config, apiKey) {
   });
 
   // HEAD — check existence + metadata
-  app.head('/:bucket/*', (req, res) => {
+  app.head('/:bucket/*splat', (req, res) => {
     const bucket = req.params.bucket;
-    const key = req.params[0];
+    const key = req.params.splat.join('/');
 
     const filePath = join(storageDir, bucket, key);
     if (!existsSync(filePath) || statSync(filePath).isDirectory()) {

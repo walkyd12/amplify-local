@@ -283,7 +283,7 @@ function buildRelationshipResolvers(modelName, model, parsedSchema, docClient) {
     } else if (rel.type === 'hasMany') {
       resolvers[fieldName] = createHasManyResolver(rel, parsedSchema, docClient);
     } else if (rel.type === 'hasOne') {
-      resolvers[fieldName] = createHasManyResolver(rel, parsedSchema, docClient);
+      resolvers[fieldName] = createHasOneResolver(rel, parsedSchema, docClient);
     }
   }
 
@@ -314,52 +314,64 @@ function createBelongsToResolver(rel, docClient) {
 }
 
 /**
- * hasMany resolver: query the related table using a GSI.
- *
- * The references array contains the FK field name on the related model
- * (e.g., ['productId'] on Review for Product.reviews).
- * We find the GSI on the related table that uses this FK as its partition key.
+ * Fetch children of a parent across a relationship. Used by both hasMany
+ * (returned as a connection) and hasOne (first item returned).
+ */
+async function fetchRelatedItems(rel, parent, parsedSchema, docClient) {
+  const relatedModel = parsedSchema.models[rel.model];
+  if (!relatedModel) return [];
+
+  const fkField = rel.references[0];
+  const fkValue = parent.id;
+  if (!fkValue) return [];
+
+  const gsi = (relatedModel.secondaryIndexes || []).find(
+    (idx) => idx.partitionKey === fkField
+  );
+
+  if (gsi) {
+    const result = await docClient.send(
+      new QueryCommand({
+        TableName: rel.model,
+        IndexName: gsi.indexName,
+        KeyConditionExpression: '#fk = :fkval',
+        ExpressionAttributeNames: { '#fk': fkField },
+        ExpressionAttributeValues: { ':fkval': fkValue },
+      })
+    );
+    return result.Items || [];
+  }
+
+  const filterExpr = buildFilterExpression({ [fkField]: { eq: fkValue } });
+  const params = { TableName: rel.model };
+  if (filterExpr) {
+    params.FilterExpression = filterExpr.FilterExpression;
+    params.ExpressionAttributeNames = filterExpr.ExpressionAttributeNames;
+    params.ExpressionAttributeValues = filterExpr.ExpressionAttributeValues;
+  }
+
+  const result = await docClient.send(new ScanCommand(params));
+  return result.Items || [];
+}
+
+/**
+ * hasMany resolver: returns a ModelXConnection { items, nextToken } to match
+ * the Amplify-generated schema shape.
  */
 function createHasManyResolver(rel, parsedSchema, docClient) {
   return async (parent) => {
-    const relatedModel = parsedSchema.models[rel.model];
-    if (!relatedModel) return [];
+    const items = await fetchRelatedItems(rel, parent, parsedSchema, docClient);
+    return { items, nextToken: null };
+  };
+}
 
-    // The FK field on the related table
-    const fkField = rel.references[0];
-    const fkValue = parent.id;
-    if (!fkValue) return [];
-
-    // Find the GSI on the related model that uses this FK
-    const gsi = (relatedModel.secondaryIndexes || []).find(
-      (idx) => idx.partitionKey === fkField
-    );
-
-    if (gsi) {
-      // Use GSI query
-      const result = await docClient.send(
-        new QueryCommand({
-          TableName: rel.model,
-          IndexName: gsi.indexName,
-          KeyConditionExpression: '#fk = :fkval',
-          ExpressionAttributeNames: { '#fk': fkField },
-          ExpressionAttributeValues: { ':fkval': fkValue },
-        })
-      );
-      return result.Items || [];
-    }
-
-    // Fallback: scan with filter (if no GSI exists for this FK)
-    const filterExpr = buildFilterExpression({ [fkField]: { eq: fkValue } });
-    const params = { TableName: rel.model };
-    if (filterExpr) {
-      params.FilterExpression = filterExpr.FilterExpression;
-      params.ExpressionAttributeNames = filterExpr.ExpressionAttributeNames;
-      params.ExpressionAttributeValues = filterExpr.ExpressionAttributeValues;
-    }
-
-    const result = await docClient.send(new ScanCommand(params));
-    return result.Items || [];
+/**
+ * hasOne resolver: returns the first related item, or null.
+ */
+function createHasOneResolver(rel, parsedSchema, docClient) {
+  return async (parent) => {
+    const items = await fetchRelatedItems(rel, parent, parsedSchema, docClient);
+    return items[0] || null;
   };
 }
 

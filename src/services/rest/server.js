@@ -54,7 +54,7 @@ export function createRestServer(config) {
   }
 
   // Catch-all: return a default mock response for any unconfigured route
-  app.all('*', (req, res) => {
+  app.all('/*splat', (req, res) => {
     // Extract endpoint key from URL (first path segment)
     const segments = req.path.split('/').filter(Boolean);
     const endpoint = segments[0] || 'unknown';
