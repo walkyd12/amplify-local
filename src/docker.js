@@ -75,17 +75,27 @@ function compose(args, env) {
  * Polls every second up to maxWait seconds.
  */
 async function waitForHealthy(port, maxWait = 30) {
-  const url = `http://localhost:${port}/shell/`;
+  const url = `http://127.0.0.1:${port}/`;
   const start = Date.now();
 
   while (Date.now() - start < maxWait * 1000) {
     try {
-      const res = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(1500) });
-      if (res.ok || res.status < 500) return true;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-amz-json-1.0',
+          'X-Amz-Target': 'DynamoDB_20120810.ListTables',
+          Authorization:
+            'AWS4-HMAC-SHA256 Credential=local/20200101/us-east-1/dynamodb/aws4_request',
+        },
+        body: '{}',
+        signal: AbortSignal.timeout(1500),
+      });
+      if (res.ok) return true;
     } catch {
       // not ready yet
     }
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise((r) => setTimeout(r, 500));
   }
   return false;
 }
@@ -116,7 +126,7 @@ export async function dockerStart(config, options = {}) {
 
   // Pull image if needed (first run)
   spinner.text = 'Starting DynamoDB Local...';
-  await compose(['up', '-d', '--wait'], env);
+  await compose(['up', '-d'], env);
 
   // Verify healthy
   spinner.text = 'Waiting for DynamoDB Local to become healthy...';

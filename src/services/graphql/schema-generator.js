@@ -150,7 +150,7 @@ function generateModelType(modelName, model, parsedSchema) {
   // Relationship fields
   for (const [fieldName, rel] of Object.entries(model.relationships || {})) {
     if (rel.type === 'hasMany') {
-      lines.push(`  ${fieldName}: [${rel.model}]`);
+      lines.push(`  ${fieldName}: ${rel.model}Connection`);
     } else {
       lines.push(`  ${fieldName}: ${rel.model}`);
     }
