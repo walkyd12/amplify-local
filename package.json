@@ -12,7 +12,11 @@
   },
   "scripts": {
     "start": "node bin/amplify-local.js start",
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "vitest run --project unit",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:all": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "amplify",
@@ -37,6 +41,8 @@
     "tsx": "^4.21.0"
   },
   "devDependencies": {
-    "@aws-amplify/backend": "^1.22.0"
+    "@aws-amplify/backend": "^1.22.0",
+    "supertest": "^7.2.2",
+    "vitest": "^4.1.4"
   }
 }
