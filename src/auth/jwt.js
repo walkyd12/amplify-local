@@ -69,23 +69,32 @@ export async function signIdToken({ sub, email, groups, poolId, clientId }) {
 /**
  * Sign an access token with Cognito-compatible claims.
  */
-export async function signAccessToken({ sub, groups, clientId }) {
+export async function signAccessToken({ sub, groups, clientId, poolId, username }) {
   const now = Math.floor(Date.now() / 1000);
+  const region = poolId && poolId.includes('_') ? poolId.split('_')[0] : 'local-1';
+  const issuer = `https://cognito-idp.${region}.amazonaws.com/${poolId || 'local-1_localpool01'}`;
 
   const jwt = await new SignJWT({
     sub,
     'cognito:groups': groups || [],
     token_use: 'access',
     client_id: clientId,
+    username: username || sub,
     scope: 'aws.cognito.signin.user.admin',
     auth_time: now,
+    jti: randomId(),
   })
     .setProtectedHeader({ alg: ALG, kid: 'local-key-1' })
+    .setIssuer(issuer)
     .setIssuedAt(now)
     .setExpirationTime('24h')
     .sign(privateKey);
 
   return jwt;
+}
+
+function randomId() {
+  return [...Array(32)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
 }
 
 /**

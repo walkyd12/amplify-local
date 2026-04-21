@@ -172,6 +172,42 @@ Override via `amplify-local.config.js` (`ports.*`) or env vars
   traffic on `us-east-1` / `eu-west-1` / etc. is unaffected on the
   same machine.
 
+## 2-machine: HTTPS for the app and GraphQL too (not just Cognito)
+
+`make tls-server` + `make tls-caddy` only covers the Cognito hostname.
+That's enough if the consuming app doesn't care about secure cookies.
+But any Next.js / Amplify Gen 2 app that calls
+`Amplify.configure(outputs, { ssr: true })` stores tokens in
+**cookies** (not localStorage), and Amplify's `CookieStorage` defaults
+to `secure: true`. Cookies with `Secure` silently fail to write from
+`http://` origins, so `signIn()` "succeeds" but `getCurrentUser()`
+returns null and throws `UnexpectedSignInInterruptionException:
+Unable to get user session following successful sign-in`.
+
+Two ways out:
+
+- **Recommended:** put the app behind HTTPS too, so the browser sees an
+  `https://` origin and secure cookies work. A reverse proxy on the
+  server (NPM, Caddy, nginx) terminates TLS for a made-up hostname
+  (`stocked.local`, `app.local-1.amazonaws.com`, whatever) and forwards
+  to the Next.js dev server on its http port. Because the page is
+  https, GraphQL must also be fetched over https — proxy :4502 behind
+  a second hostname and rewrite `amplify_outputs.json`'s `data.url`
+  to match. mkcert signs all these certs off the root CA that the
+  client already trusts from `make tls-client`, so no extra trust
+  work.
+- **App-side workaround:** override Amplify's token storage in the
+  consuming app (`cognitoUserPoolsTokenProvider.setKeyValueStorage(new
+  CookieStorage({ secure: false }))`). Requires editing the consuming
+  project, which defeats the "zero code changes" promise — avoid
+  unless putting the app behind HTTPS is genuinely blocked.
+
+amplify-local doesn't automate the app-proxy path yet (Makefile only
+knows about the Cognito hostname), but the scripts under `scripts/`
+are the right reference for what a future `make tls-app HOST=...`
+target would look like: mkcert leaf cert + proxy hostname entry +
+Caddyfile block.
+
 ## Claude Code skill
 
 `skills/amplify-local.md` ships with the package. `npx amplify-local
