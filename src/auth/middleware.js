@@ -22,10 +22,14 @@ export function createAuthMiddleware(apiKey) {
       return next();
     }
 
-    // Check Authorization: Bearer {token}
+    // Check Authorization header. AppSync / Amplify send the raw JWT with
+    // no scheme (e.g. `Authorization: eyJ...`), but curl-style clients and
+    // the docs examples use `Bearer <token>`. Accept both.
     const authHeader = req.headers['authorization'] || req.headers['Authorization'];
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.slice(7);
+    if (authHeader) {
+      const token = authHeader.startsWith('Bearer ')
+        ? authHeader.slice(7)
+        : authHeader;
       try {
         const payload = await verifyToken(token);
         req.authContext = {
