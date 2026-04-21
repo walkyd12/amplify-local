@@ -246,6 +246,28 @@ Mac if the port is open). Five tabs:
 - **Tables** — list DynamoDB tables, scan per table (50-row cap)
 - **Logs** — live-streaming ring buffer from every service
 
+## Claude Code skill
+
+If your team uses Claude Code, amplify-local ships a skill that gives
+Claude task-specific context about ports, config, the 2-machine setup,
+and common debugging recipes. Install it into the consuming repo:
+
+```bash
+make install-skill          # → ./.claude/skills/amplify-local.md (team-shared)
+make install-skill-user     # → ~/.claude/skills/amplify-local.md (per-developer)
+
+# Or directly
+npx amplify-local install-skill [--user|--project] [--force] [--dry-run]
+```
+
+The installer stamps the amplify-local version into the skill's
+frontmatter so re-running on a newer release prompts for `--force` to
+update an out-of-date file. After install, restart Claude Code.
+
+Skills are a Claude Code feature — engineers using Cursor, plain
+Anthropic API, or another tool won't see them. The skill is
+supplementary to the README and `docs/`, not a replacement.
+
 ## Seed data
 
 ```json

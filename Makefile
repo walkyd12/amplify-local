@@ -85,6 +85,16 @@ tls-client:  ## Wire this machine's browser to the remote Cognito (SERVER=ip [CA
 	  || { echo "usage: make tls-client SERVER=<ip> [CA=<path-or-url>]"; exit 1; }
 	./scripts/setup-cognito-tls-client.sh $(SERVER) $(CA)
 
+# ---- Claude Code skill ----------------------------------------------------
+
+.PHONY: install-skill
+install-skill:  ## Install the amplify-local skill into ./.claude/skills/
+	npx amplify-local install-skill
+
+.PHONY: install-skill-user
+install-skill-user:  ## Install the amplify-local skill into ~/.claude/skills/
+	npx amplify-local install-skill --user
+
 # ---- Help -----------------------------------------------------------------
 
 .PHONY: help
