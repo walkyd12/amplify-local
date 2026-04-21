@@ -1,12 +1,29 @@
 {
   "name": "amplify-local",
   "version": "0.1.0",
-  "description": "Local emulator for AWS Amplify Gen 2 — run your backend locally with zero AWS credentials",
+  "description": "Local emulator for AWS Amplify Gen 2 — GraphQL, DynamoDB, S3, REST, and a Cognito-shaped auth endpoint, all running on your laptop with no AWS credentials.",
   "type": "module",
   "bin": {
     "amplify-local": "./bin/amplify-local.js"
   },
   "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "docker/",
+    "skills/",
+    "templates/",
+    "docs/",
+    "Makefile",
+    "scripts/",
+    "README.md",
+    "CLAUDE.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=18"
   },
@@ -16,16 +33,30 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:all": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepack": "npm run test:unit"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/walkyd12/amplify-local.git"
+  },
+  "bugs": {
+    "url": "https://github.com/walkyd12/amplify-local/issues"
+  },
+  "homepage": "https://github.com/walkyd12/amplify-local#readme",
   "keywords": [
     "amplify",
+    "amplify-gen2",
     "aws",
     "local",
     "emulator",
     "graphql",
+    "appsync",
     "dynamodb",
-    "s3"
+    "s3",
+    "cognito",
+    "development",
+    "testing"
   ],
   "license": "Apache-2.0",
   "dependencies": {

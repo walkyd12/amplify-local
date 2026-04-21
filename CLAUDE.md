@@ -154,9 +154,10 @@ Override via `amplify-local.config.js` (`ports.*`) or env vars
   and `pool: 'forks'` — otherwise `@graphql-tools/schema`'s CJS build
   loads a distinct `graphql` module and `makeExecutableSchema`'s output
   fails `instanceof` checks in `graphql()`. See `vitest.config.js`.
-- The unit project also uses `pool: 'forks'` — `src/auth/jwt.js` caches
-  keys at module level, and shared-thread module state leaks across
-  test files (it flakes the Cognito GlobalSignOut test specifically).
+- The unit project uses `pool: 'forks'` as defense in depth — a few
+  modules keep state at the module level (e.g. `src/auth/jwt.js`'s
+  key cache), and per-file forks keep that contained. Not currently
+  load-bearing for any known test, but cheap to keep.
 - The GraphQL schema is generated as SDL strings, not code-first.
 - Resolvers interact with DynamoDB via the AWS SDK v3 DocumentClient.
 - The orchestrator writes a state file so `stop` and `status` can find
@@ -179,6 +180,39 @@ directory (or `~/.claude/skills/` with `--user`). The installer stamps
 the amplify-local version into the frontmatter so stale copies can be
 detected; `--force` updates in place. Implementation lives in
 `src/skill-installer.js`.
+
+## Releasing
+
+Releases are tag-driven. `.github/workflows/release.yml` fires on any
+tag matching `v*.*.*`.
+
+```bash
+# 1. Bump the version in package.json (this is what the workflow
+#    validates the tag against — they must match exactly).
+npm version patch|minor|major        # or edit package.json by hand
+
+# 2. Push the tag that `npm version` created.
+git push && git push --tags
+```
+
+The workflow:
+1. Validates the tag (`v0.2.0`) matches `package.json` version (`0.2.0`)
+2. Runs unit tests
+3. `npm pack` → tarball
+4. Smoke-installs the tarball in a scratch dir (CLI, install-skill,
+   docker-compose shipped, programmatic import resolves)
+5. Creates a GitHub release with the tarball attached and
+   auto-generated notes
+6. Any tag with a hyphen (`v0.2.0-beta.1`) is flagged as pre-release
+
+Consumers pin to a tag:
+
+```bash
+npm install --save-dev github:walkyd12/amplify-local#v0.2.0
+```
+
+Downgrade path: drop the tag locally + remotely, un-bump package.json,
+delete the release from the GitHub UI.
 
 ## Key reference docs
 
