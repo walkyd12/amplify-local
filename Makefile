@@ -13,6 +13,12 @@
 install:  ## Install npm dependencies
 	npm install
 
+.PHONY: up
+up: docker-start start  ## Bring up DynamoDB Local + amplify-local (foreground; Ctrl-C to stop)
+
+.PHONY: down
+down: stop docker-stop  ## Stop amplify-local and tear down DynamoDB Local
+
 .PHONY: start
 start:  ## Start amplify-local (foreground). Stops on Ctrl-C.
 	npx amplify-local start
