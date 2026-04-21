@@ -1,0 +1,92 @@
+name: release
+
+# Tag-driven release. Pushing any tag like `v0.1.0` / `v0.2.0-beta.1`
+# builds the tarball, smoke-installs it, and publishes a GitHub release.
+# Consumers can then pin to the tag:
+#   npm install --save-dev github:walkyd12/amplify-local#v0.1.0
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write  # needed for `gh release create`
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history so release notes can diff vs previous tag
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate tag matches package.json version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$PKG_VERSION" ]; then
+            echo "::error::Tag '$GITHUB_REF_NAME' does not match package.json version '$PKG_VERSION'."
+            echo "Bump the version in package.json before tagging."
+            exit 1
+          fi
+          echo "Tag and version agree on $PKG_VERSION"
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Build tarball
+        id: pack
+        run: |
+          TARBALL=$(npm pack --silent)
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          ls -l "$TARBALL"
+
+      - name: Smoke-install the tarball in a scratch dir
+        run: |
+          set -euo pipefail
+          SCRATCH="$(mktemp -d)"
+          cd "$SCRATCH"
+          npm init -y >/dev/null
+          npm install "$GITHUB_WORKSPACE/${{ steps.pack.outputs.tarball }}" >/dev/null
+
+          # CLI resolves
+          ./node_modules/.bin/amplify-local --help >/dev/null
+
+          # install-skill command is reachable and works
+          ./node_modules/.bin/amplify-local install-skill --dry-run >/dev/null
+
+          # docker-compose.yml shipped (docker:start would need it at runtime)
+          test -f node_modules/amplify-local/docker/docker-compose.yml
+
+          # programmatic import resolves all named exports
+          COUNT=$(node --input-type=module -e \
+            "import('amplify-local').then(m => console.log(Object.keys(m).length))")
+          test "$COUNT" -gt 20
+
+          echo "Smoke test passed: CLI + install-skill + programmatic import"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Pre-release flag for anything with a hyphen in the version
+          # (e.g. v0.2.0-beta.1 → prerelease).
+          PRERELEASE_FLAG=""
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          gh release create "$GITHUB_REF_NAME" \
+            "${{ steps.pack.outputs.tarball }}" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            $PRERELEASE_FLAG

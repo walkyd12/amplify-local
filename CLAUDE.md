@@ -180,6 +180,39 @@ the amplify-local version into the frontmatter so stale copies can be
 detected; `--force` updates in place. Implementation lives in
 `src/skill-installer.js`.
 
+## Releasing
+
+Releases are tag-driven. `.github/workflows/release.yml` fires on any
+tag matching `v*.*.*`.
+
+```bash
+# 1. Bump the version in package.json (this is what the workflow
+#    validates the tag against — they must match exactly).
+npm version patch|minor|major        # or edit package.json by hand
+
+# 2. Push the tag that `npm version` created.
+git push && git push --tags
+```
+
+The workflow:
+1. Validates the tag (`v0.2.0`) matches `package.json` version (`0.2.0`)
+2. Runs unit tests
+3. `npm pack` → tarball
+4. Smoke-installs the tarball in a scratch dir (CLI, install-skill,
+   docker-compose shipped, programmatic import resolves)
+5. Creates a GitHub release with the tarball attached and
+   auto-generated notes
+6. Any tag with a hyphen (`v0.2.0-beta.1`) is flagged as pre-release
+
+Consumers pin to a tag:
+
+```bash
+npm install --save-dev github:walkyd12/amplify-local#v0.2.0
+```
+
+Downgrade path: drop the tag locally + remotely, un-bump package.json,
+delete the release from the GitHub UI.
+
 ## Key reference docs
 
 - `docs/cognito-setup.md` — full Cognito endpoint guide (supported
