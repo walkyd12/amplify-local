@@ -9,6 +9,7 @@ const DEFAULTS = {
     graphql: 4502,
     storage: 4503,
     rest: 4504,
+    dashboard: 4501,
     dynamodb: 8000,
   },
   users: [],
@@ -98,6 +99,9 @@ export async function loadConfig(cliOptions = {}) {
   }
   if (process.env.AMPLIFY_LOCAL_DYNAMODB_PORT) {
     merged.ports.dynamodb = parseInt(process.env.AMPLIFY_LOCAL_DYNAMODB_PORT, 10);
+  }
+  if (process.env.AMPLIFY_LOCAL_DASHBOARD_PORT) {
+    merged.ports.dashboard = parseInt(process.env.AMPLIFY_LOCAL_DASHBOARD_PORT, 10);
   }
 
   return merged;
