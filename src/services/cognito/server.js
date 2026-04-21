@@ -98,7 +98,7 @@ export function createCognitoServer({ config, users, parsedSchema }) {
         case 'GetUser':
           return res.json(await handleGetUser(req.body || {}));
         case 'GlobalSignOut':
-          return res.json(handleGlobalSignOut(req.body || {}));
+          return res.json(await handleGlobalSignOut(req.body || {}));
         case 'RevokeToken':
           return res.json({});
         case 'ForgotPassword':
