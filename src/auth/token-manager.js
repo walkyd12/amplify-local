@@ -41,6 +41,8 @@ export async function generateTokens(users, authConfig, dataDir) {
       sub,
       groups: groups || [],
       clientId,
+      poolId,
+      username: sub,
     });
 
     tokens[email] = { idToken, accessToken };

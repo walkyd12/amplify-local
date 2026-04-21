@@ -5,6 +5,20 @@ import { pathToFileURL } from 'url';
 const DEFAULTS = {
   amplifyDir: './amplify',
   output: './amplify_outputs.json',
+  // Host embedded into amplify_outputs.json for the GraphQL + REST URLs.
+  // Override to the server's LAN IP / hostname when consumers access the
+  // emulator from another machine (e.g. `publicHost: '192.168.50.3'` or
+  // `'stocked.local'`). Cognito URLs are NOT rewritten because they must
+  // match the SDK-derived `https://cognito-idp.<aws_region>.amazonaws.com/`
+  // pattern — use the hosts-file + TLS setup instead.
+  publicHost: 'localhost',
+  // Enable emitting `identity_pool_id` + `unauthenticated_identities_enabled`
+  // in amplify_outputs.json. amplify-local does NOT emulate the Cognito
+  // Identity Pool endpoint, so leaving this on causes the Amplify SDK to
+  // hit `cognito-identity.<region>.amazonaws.com` and stall with
+  // `ERR_NAME_NOT_RESOLVED`. Off by default; flip on only if you plan to
+  // run your own identity-pool stub.
+  emitIdentityPool: false,
   ports: {
     graphql: 4502,
     storage: 4503,
@@ -106,6 +120,12 @@ export async function loadConfig(cliOptions = {}) {
   }
   if (process.env.AMPLIFY_LOCAL_COGNITO_PORT) {
     merged.ports.cognito = parseInt(process.env.AMPLIFY_LOCAL_COGNITO_PORT, 10);
+  }
+  if (process.env.AMPLIFY_LOCAL_PUBLIC_HOST) {
+    merged.publicHost = process.env.AMPLIFY_LOCAL_PUBLIC_HOST;
+  }
+  if (process.env.AMPLIFY_LOCAL_EMIT_IDENTITY_POOL === 'true') {
+    merged.emitIdentityPool = true;
   }
 
   return merged;

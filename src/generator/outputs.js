@@ -11,7 +11,7 @@ export function generateOutputs(parsedSchema, config) {
   };
 
   // Auth section — always present with fake local pool IDs
-  outputs.auth = buildAuthSection(parsedSchema);
+  outputs.auth = buildAuthSection(parsedSchema, config);
 
   // Data section — GraphQL endpoint, API key, model introspection
   outputs.data = buildDataSection(parsedSchema, config);
@@ -45,7 +45,7 @@ export function writeOutputs(parsedSchema, config) {
 // Section builders
 // ---------------------------------------------------------------------------
 
-function buildAuthSection(parsedSchema) {
+function buildAuthSection(parsedSchema, config) {
   // A fake region is intentional: the Amplify SDK constructs the Cognito
   // URL from this value (`https://cognito-idp.<region>.amazonaws.com/`).
   // Using a non-existent region (`local-1`) means a hosts-file override for
@@ -54,11 +54,9 @@ function buildAuthSection(parsedSchema) {
   const section = {
     user_pool_id: 'local-1_localpool01',
     aws_region: 'local-1',
-    user_pool_client_id: 'local_client_amplify',
-    identity_pool_id: 'local-1:local-identity-pool-amplify',
+    user_pool_client_id: 'local-client-id-000000',
     mfa_configuration: 'NONE',
     mfa_methods: [],
-    unauthenticated_identities_enabled: true,
     password_policy: {
       min_length: 8,
       require_lowercase: true,
@@ -78,6 +76,16 @@ function buildAuthSection(parsedSchema) {
     groups.forEach((group, index) => {
       section.groups[group] = { precedence: index };
     });
+  }
+
+  // Identity-pool fields are off by default: amplify-local does not emulate
+  // the `cognito-identity` endpoint, and leaving them in the output makes
+  // the Amplify SDK stall on `ERR_NAME_NOT_RESOLVED` during
+  // `fetchAuthSession`. Opt in via `emitIdentityPool: true` only if you
+  // front amplify-local with your own identity-pool stub.
+  if (config?.emitIdentityPool) {
+    section.identity_pool_id = 'local-1:local-identity-pool-amplify';
+    section.unauthenticated_identities_enabled = true;
   }
 
   return section;
@@ -101,8 +109,9 @@ function buildDataSection(parsedSchema, config) {
     }
   }
 
+  const host = config.publicHost || 'localhost';
   const section = {
-    url: `http://localhost:${config.ports.graphql}/graphql`,
+    url: `http://${host}:${config.ports.graphql}/graphql`,
     aws_region: 'us-east-1',
     default_authorization_type: defaultMode,
     authorization_types: Array.from(additionalModes),
@@ -138,10 +147,11 @@ function buildStorageSection(parsedSchema, config) {
 function buildCustomSection(config) {
   const custom = {};
   const restPort = config.ports.rest;
+  const host = config.publicHost || 'localhost';
 
   for (const endpointKey of Object.keys(config.rest)) {
     custom[endpointKey] = {
-      endpoint: `http://localhost:${restPort}/${endpointKey}/`,
+      endpoint: `http://${host}:${restPort}/${endpointKey}/`,
       region: 'us-east-1',
     };
   }

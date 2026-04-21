@@ -42,9 +42,14 @@ export function createCognitoServer({ config, users, parsedSchema }) {
   app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    // Echo whatever headers the browser says it's about to send. AWS SDK v3
+    // adds `amz-sdk-invocation-id` / `amz-sdk-request` beyond the classic
+    // `x-amz-*` set, and the list grows over time — echoing avoids chasing.
+    const requested = req.headers['access-control-request-headers'];
     res.setHeader(
       'Access-Control-Allow-Headers',
-      'Content-Type, X-Amz-Target, X-Amz-User-Agent, Authorization, Accept, X-Amz-Date'
+      requested ||
+        'Content-Type, X-Amz-Target, X-Amz-User-Agent, Authorization, Accept, X-Amz-Date, amz-sdk-invocation-id, amz-sdk-request'
     );
     res.setHeader('Access-Control-Max-Age', '86400');
     if (req.method === 'OPTIONS') return res.sendStatus(204);
@@ -205,6 +210,8 @@ export function createCognitoServer({ config, users, parsedSchema }) {
       sub: user.sub,
       groups: user.groups,
       clientId,
+      poolId,
+      username: user.username,
     });
     return {
       AuthenticationResult: {
@@ -329,6 +336,8 @@ export function createCognitoServer({ config, users, parsedSchema }) {
       sub: user.sub,
       groups: user.groups,
       clientId,
+      poolId,
+      username: user.username,
     });
     const refreshToken = mintRefreshToken(user);
     return {

@@ -125,6 +125,17 @@ export default {
   amplifyDir: './amplify',
   output: './amplify_outputs.json',
 
+  // Host baked into amplify_outputs.json for GraphQL + REST URLs. Default
+  // 'localhost'. Override to the server's LAN IP / hostname when the
+  // consuming app runs on a different machine (2-machine setups).
+  publicHost: 'localhost',
+
+  // amplify-local does NOT emulate the Cognito Identity Pool endpoint.
+  // Leaving `identity_pool_id` in the output stalls the Amplify SDK with
+  // `ERR_NAME_NOT_RESOLVED`, so it's omitted by default. Flip on only if
+  // you front amplify-local with your own identity-pool stub.
+  emitIdentityPool: false,
+
   ports: {
     graphql: 4502,
     storage: 4503,
@@ -167,6 +178,9 @@ Ports can also be overridden via env vars:
 AMPLIFY_LOCAL_GRAPHQL_PORT   AMPLIFY_LOCAL_STORAGE_PORT
 AMPLIFY_LOCAL_REST_PORT      AMPLIFY_LOCAL_COGNITO_PORT
 AMPLIFY_LOCAL_DASHBOARD_PORT AMPLIFY_LOCAL_DYNAMODB_PORT
+
+AMPLIFY_LOCAL_PUBLIC_HOST      # host for graphql/rest URLs in amplify_outputs.json
+AMPLIFY_LOCAL_EMIT_IDENTITY_POOL=true   # opt in to identity-pool fields
 ```
 
 ## Authentication
