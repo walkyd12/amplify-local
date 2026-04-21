@@ -1,83 +1,94 @@
 # amplify-local
 
-Local emulator for AWS Amplify Gen 2 -- run your backend locally with zero AWS credentials.
+Local emulator for AWS Amplify Gen 2 — run your backend with zero AWS
+credentials. Reads your `amplify/` TypeScript resource files and spins
+up local replacements for AppSync (GraphQL), DynamoDB, S3, REST APIs,
+**and** a Cognito-shaped auth endpoint the Amplify SDK can talk to
+directly.
 
-Reads your `amplify/` TypeScript backend definitions and spins up local replacements for AppSync (GraphQL), DynamoDB, S3, and REST APIs. Generates an `amplify_outputs.json` your frontend consumes with zero code changes.
+Your frontend consumes the generated `amplify_outputs.json` — no code
+changes required.
 
-## Quick Start
+## What you get
 
-### Prerequisites
+| Amplify service | Local replacement | Port |
+|---|---|---|
+| AppSync (GraphQL) | Express + `@graphql-tools/schema` | 4502 |
+| DynamoDB | DynamoDB Local (Docker) | 8000 |
+| S3 Storage | Filesystem-backed Express server | 4503 |
+| Cognito UserPool | SRP + password auth JSON-RPC endpoint | 4500 |
+| REST APIs | Express mock router | 4504 |
+| — | Dashboard UI (health, tokens, logs, tables) | 4501 |
+
+Plus:
+- Cognito-compatible JWTs (RSA-2048, RS256) with the right issuer claim
+  and a JWKS endpoint
+- Pre-generated test-user tokens at `.amplify-local/tokens.json`
+- `Auth.signIn()` works end-to-end via the SRP-6a flow — same protocol
+  real Cognito uses
+
+## Prerequisites
 
 - **Node.js** >= 18
 - **Docker** (for DynamoDB Local)
 
-### Install
+For the Cognito endpoint + browser zero-code path:
+- **mkcert** (`brew install mkcert` on macOS; Linux: see
+  [mkcert install docs](https://github.com/FiloSottile/mkcert))
+- **caddy** (`brew install caddy`, or `sudo apt install caddy`)
+
+## Quick start (single machine)
 
 ```bash
-npm install amplify-local
+git clone <this-repo> && cd amplify-local
+make install
+
+# In one terminal — brings up DynamoDB + all amplify-local services
+make up
+
+# In another terminal — if you want Cognito-shaped sign-in from a browser
+make tls-server
+make tls-caddy
+make tls-client SERVER=127.0.0.1 CA=.amplify-local/tls/rootCA.pem
 ```
 
-### 1. Start DynamoDB Local
+Then point your Next.js / React / etc. app at the generated
+`amplify_outputs.json` as usual. `Amplify.configure(outputs)` picks up
+local URLs automatically.
 
-```bash
-npx amplify-local docker:start
-```
+Tear down: `make down`.
 
-### 2. Start the emulator
+## Commands (Makefile wrapper)
 
-```bash
-npx amplify-local start --amplify-dir ./amplify
-```
+`make help` for the canonical list. Highlights:
 
-This will:
-- Parse your `amplify/data/resource.ts` schema
-- Create DynamoDB tables matching your models
-- Start a GraphQL server on `http://localhost:4502/graphql`
-- Start an S3-compatible storage server on `http://localhost:4503`
-- Generate `amplify_outputs.json` in your project root
+| Target | What it does |
+|---|---|
+| `make up` | Start DynamoDB + amplify-local (foreground) |
+| `make down` | Stop amplify-local + tear down DynamoDB volume |
+| `make start` / `make stop` / `make status` | Just the amplify-local side |
+| `make docker-start` / `make docker-stop` | Just DynamoDB |
+| `make docker-start-ephemeral` | In-memory DynamoDB (no persistence) |
+| `make test` / `make test-integration` / `make test-all` | vitest suites |
+| `make tls-server` | Generate TLS cert + Caddyfile (on the server) |
+| `make tls-caddy` | Run Caddy on :443 (needs sudo) |
+| `make tls-client SERVER=<ip>` | Wire this machine's browser at the server |
 
-### 3. Point your frontend
+Or call the CLI directly: `npx amplify-local start | stop | status | generate | setup-tables | seed | docker:start | docker:stop`.
 
-Your Amplify frontend libraries will automatically pick up the generated `amplify_outputs.json` -- no code changes needed.
-
-### 4. Stop
-
-```bash
-npx amplify-local stop
-```
-
-## CLI Commands
-
-| Command | Description |
-|---------|-------------|
-| `start` | Start all emulated services |
-| `stop` | Stop all running services |
-| `status` | Health check running services |
-| `generate` | Generate `amplify_outputs.json` without starting services |
-| `setup-tables` | Create DynamoDB tables from schema |
-| `seed` | Load seed data from a JSON file |
-| `docker:start` | Start DynamoDB Local via Docker Compose |
-| `docker:stop` | Stop DynamoDB Local container |
-
-### Global Options
+### Start flags
 
 ```
---amplify-dir <path>   Path to amplify/ directory (default: ./amplify)
---config <path>        Path to amplify-local.config.js
---verbose              Enable verbose error logging
-```
-
-### Start Options
-
-```
---no-storage           Skip the storage server
---no-rest              Skip the REST mock server
---ephemeral            Use in-memory DynamoDB (no persistence)
+--no-storage        Skip the storage server
+--no-rest           Skip the REST mock server
+--no-dashboard      Skip the dashboard UI
+--no-cognito        Skip the Cognito-shaped endpoint
+--ephemeral         Use in-memory DynamoDB (no persistence)
 ```
 
 ## Configuration
 
-Create an `amplify-local.config.js` in your project root:
+`amplify-local.config.js` in your project root:
 
 ```javascript
 export default {
@@ -88,53 +99,54 @@ export default {
     graphql: 4502,
     storage: 4503,
     rest: 4504,
+    cognito: 4500,
+    dashboard: 4501,
     dynamodb: 8000,
   },
 
-  // Test users -- tokens are auto-generated on startup
+  // Test users. `password` unlocks the Cognito endpoint for that user.
+  // Without `password`, the user is still usable via tokens.json.
   users: [
-    { email: 'admin@test.com', sub: 'admin-uuid-1', groups: ['admins'] },
-    { email: 'user@test.com', sub: 'user-uuid-1', groups: ['customers'] },
+    { email: 'admin@test.local', sub: 'admin-001', password: 'Admin1!', groups: ['admins'] },
+    { email: 'user@test.local',  sub: 'user-001',  password: 'User1!'                     },
   ],
 
   // Mock REST API endpoints
   rest: {
     ordersApiEndpoint: {
-      'POST /': { status: 201, body: { id: 'mock-order-1', status: 'PENDING' } },
-      'GET /:id': { status: 200, body: { id: ':id', status: 'DELIVERED' } },
+      'POST /':     { status: 201, body: { id: 'mock-order-1', status: 'PENDING' } },
+      'GET /:id':   { status: 200, body: { id: ':id',         status: 'DELIVERED' } },
     },
   },
 
-  // Seed data file
   seed: './seed.json',
 
-  // Storage settings
   storageBackend: 'filesystem',
   storageDir: './.amplify-local/storage',
 
-  // DynamoDB persistence
   dynamodbPersist: true,
   dynamodbDataDir: './.amplify-local/dynamodb-data',
 
-  // Override Lambda-backed custom query stubs
   customResolvers: {},
 };
 ```
 
-Ports can also be overridden via environment variables:
+Ports can also be overridden via env vars:
 
 ```bash
-AMPLIFY_LOCAL_GRAPHQL_PORT=4502
-AMPLIFY_LOCAL_STORAGE_PORT=4503
-AMPLIFY_LOCAL_REST_PORT=4504
-AMPLIFY_LOCAL_DYNAMODB_PORT=8000
+AMPLIFY_LOCAL_GRAPHQL_PORT   AMPLIFY_LOCAL_STORAGE_PORT
+AMPLIFY_LOCAL_REST_PORT      AMPLIFY_LOCAL_COGNITO_PORT
+AMPLIFY_LOCAL_DASHBOARD_PORT AMPLIFY_LOCAL_DYNAMODB_PORT
 ```
 
 ## Authentication
 
-amplify-local generates Cognito-compatible JWTs for configured test users. Tokens are written to `.amplify-local/tokens.json` on startup.
+Two independent auth paths — use whichever fits.
 
-Use them in requests:
+### 1. Pre-generated static JWTs (simplest, no setup)
+
+amplify-local signs Cognito-compatible JWTs for every user in the
+config on startup. Tokens go to `.amplify-local/tokens.json`:
 
 ```bash
 # API Key auth (public access)
@@ -143,84 +155,155 @@ curl http://localhost:4502/graphql \
   -H "Content-Type: application/json" \
   -d '{"query": "{ listProducts { items { id name } } }"}'
 
-# User Pool auth (authenticated access)
-TOKEN=$(jq -r '."admin@test.com".idToken' .amplify-local/tokens.json)
+# User Pool auth via a pre-generated token
+TOKEN=$(jq -r '."admin@test.local".idToken' .amplify-local/tokens.json)
 curl http://localhost:4502/graphql \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"query": "{ listProducts { items { id name } } }"}'
+  -d '{"query": "..."}'
 ```
 
-Supported auth strategies: `public` (apiKey / identityPool), `private`, `groups`, and `owner`.
+Supported strategies: `public` (apiKey / identityPool), `private`,
+`groups`, `owner`.
 
-## Seed Data
+### 2. Real `Auth.signIn()` via the Cognito endpoint
 
-Create a JSON file keyed by model name:
+Full SRP-6a, USER_PASSWORD_AUTH, REFRESH_TOKEN_AUTH, plus
+SignUp/ConfirmSignUp/GetUser/GlobalSignOut. The Amplify SDK uses this
+with **no code changes** when `amplify_outputs.json` points at the
+local Cognito server.
+
+Because the Amplify SDK builds the Cognito URL from `aws_region`,
+amplify-local emits a **fake region** (`local-1`) so redirecting
+`cognito-idp.local-1.amazonaws.com` in your hosts file *cannot*
+collide with real Cognito traffic for us-east-1 / eu-west-1 / etc.
+
+Full step-by-step lives in
+[docs/cognito-setup.md](docs/cognito-setup.md), including
+single-machine, 2-machine, and CI-runner recipes.
+
+## 2-machine setup (dev server + laptop or agent)
+
+Typical setup: a dev box or VM on your LAN runs amplify-local and your
+Next.js dev server; you browse from your Mac. Same instructions for
+public cloud VMs, just swap LAN IP for the public one.
+
+### On the server (one-time)
+
+```bash
+git clone <this-repo> /opt/amplify-local && cd /opt/amplify-local
+make install
+make tls-server
+# open port 443 (Caddy) and your Next.js port on the firewall / security group
+```
+
+### On the server (each session)
+
+```bash
+# terminal 1
+make up                # DynamoDB + amplify-local
+
+# terminal 2
+make tls-caddy         # sudo caddy on :443
+
+# terminal 3
+cd /opt/your-nextjs-app
+next dev -H 0.0.0.0    # bind to all interfaces so your Mac can reach it
+```
+
+### On the Mac (one-time)
+
+```bash
+brew install mkcert
+git clone <this-repo> ~/code/amplify-local && cd ~/code/amplify-local
+make tls-client SERVER=<server-lan-or-public-ip>
+# - scp's rootCA.pem from server (or use CA=http://... / CA=./rootCA.pem)
+# - adds the server IP → cognito-idp.local-1.amazonaws.com to /etc/hosts
+# - installs the CA into System keychain + Firefox NSS DBs
+# - verifies the TLS handshake
+```
+
+Point your browser at `http://<server-ip>:3000` (Next.js). Sign in.
+
+### Verify
+
+```bash
+curl -I https://cognito-idp.local-1.amazonaws.com/      # TLS handshake ok
+```
+
+If the server IP ever changes, re-run
+`make tls-client SERVER=<new-ip>` on each client. No re-cert, no
+re-trust — it just rewrites the hosts entry.
+
+## Dashboard
+
+Open `http://localhost:4501` (or `http://<server-ip>:4501` from your
+Mac if the port is open). Five tabs:
+
+- **Health** — each service's probe status, PID, uptime
+- **Tokens** — API key + every pre-generated JWT (copy/paste-able)
+- **Schema** — parsed models with fields, relationships, indexes, auth
+- **Tables** — list DynamoDB tables, scan per table (50-row cap)
+- **Logs** — live-streaming ring buffer from every service
+
+## Seed data
 
 ```json
 {
-  "Category": [
-    { "name": "Electronics", "description": "Gadgets and devices" }
-  ],
-  "Product": [
-    { "name": "Headphones", "price": 79.99, "categoryId": "cat-1" }
-  ]
+  "Category": [ { "name": "Electronics", "description": "Gadgets and devices" } ],
+  "Product":  [ { "name": "Headphones", "price": 79.99, "categoryId": "cat-1" } ]
 }
 ```
 
-Missing `id`, `createdAt`, and `updatedAt` fields are auto-generated.
+Missing `id`, `createdAt`, `updatedAt` are auto-generated.
 
 ```bash
 npx amplify-local seed --file ./seed.json
 npx amplify-local seed --file ./seed.json --reset  # drop tables first
 ```
 
-## What Gets Emulated
+## Non-goals
 
-| Amplify Service | Local Replacement |
-|-----------------|-------------------|
-| AppSync (GraphQL) | Express + `@graphql-tools/schema` on port 4502 |
-| DynamoDB | DynamoDB Local (Docker) on port 8000 |
-| S3 Storage | Filesystem-backed Express server on port 4503 |
-| Cognito Auth | Static JWT tokens with RSA-2048 signing |
-| REST APIs | Express mock router on port 4504 |
+Explicit non-goals (not emulated):
+- MFA, Hosted UI, Lambda Cognito triggers
+- Email / SMS delivery
+- GraphQL subscriptions
+- Lambda function execution
+- AppSync custom resolvers (stub only; override via `customResolvers`)
 
-### GraphQL Features
+Calling unsupported Cognito actions returns `NotImplementedException`
+so the SDK surfaces it cleanly.
 
-- Full CRUD mutations (create, update, delete) with auto-generated `id` and timestamps
-- List queries with filtering (`eq`, `ne`, `gt`, `lt`, `contains`, `beginsWith`, `between`, etc.)
-- Relationship resolution (`belongsTo`, `hasMany`)
-- Secondary index queries
-- Auth enforcement per model/operation
-- GraphQL Playground at `GET /graphql`
-
-### Storage Features
-
-- `PUT`, `GET`, `DELETE`, `HEAD` for objects
-- `ListObjectsV2`-compatible listing with prefix filtering
-- Path-based access control matching Amplify storage rules
-
-## Project Structure
+## Project structure
 
 ```
 amplify-local/
-  bin/amplify-local.js        CLI entry point
+  bin/amplify-local.js          CLI entry point
+  Makefile                      Makefile targets; `make help` to list
   src/
-    cli.js                    Commander.js CLI definition
-    config.js                 Configuration loader
-    orchestrator.js           Service startup/shutdown
-    docker.js                 Docker Compose management
-    parser/                   Amplify schema parser (TS import + extraction)
-    auth/                     JWT generation, middleware, auth enforcement
-    generator/                amplify_outputs.json generation
-    dynamo/                   DynamoDB client, table creation, seeding
+    cli.js                      Commander.js CLI
+    config.js                   Config loader (defaults ∪ file ∪ CLI ∪ env)
+    orchestrator.js             Service startup/shutdown, state file
+    docker.js                   docker compose wrapper
+    logger.js                   Ring buffer + console interception
+    parser/                     amplify/* TS → parsed schema
+    auth/                       JWT, middleware, rule enforcer
+    generator/                  amplify_outputs.json + introspection
+    dynamo/                     Client, table creator, seeder
     services/
-      graphql/                GraphQL server, schema gen, resolvers, filters
-      storage/                S3-compatible storage server
-      rest/                   REST API mock server
-  docker/
-    docker-compose.yml        DynamoDB Local service
-  templates/                  Example config and seed files
+      graphql/                  GraphQL server, schema gen, resolvers, filters
+      storage/                  S3-compatible storage
+      rest/                     REST mock
+      cognito/                  SRP, user store, JSON-RPC server
+      dashboard/                Health/tokens/schema/tables/logs UI
+  docker/docker-compose.yml     DynamoDB Local (root user, named volume)
+  docs/cognito-setup.md         Full Cognito endpoint + TLS guide
+  scripts/                      setup-cognito-tls-server.sh / -client.sh
+  templates/                    Example config and seed files
+  test/
+    fixtures/minimal-amplify/   3-model schema for tests
+    unit/                       Unit tests (vitest)
+    integration/                DynamoDB-backed integration tests
 ```
 
 ## License
