@@ -17,6 +17,10 @@ export default defineConfig({
           name: 'unit',
           include: ['test/unit/**/*.test.js'],
           environment: 'node',
+          // Forks give each test file its own process so module-level state
+          // (e.g. the cached RSA keypair in src/auth/jwt.js) can't leak
+          // between files when they run in parallel.
+          pool: 'forks',
         },
       },
       {

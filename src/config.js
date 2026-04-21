@@ -10,6 +10,7 @@ const DEFAULTS = {
     storage: 4503,
     rest: 4504,
     dashboard: 4501,
+    cognito: 4500,
     dynamodb: 8000,
   },
   users: [],
@@ -102,6 +103,9 @@ export async function loadConfig(cliOptions = {}) {
   }
   if (process.env.AMPLIFY_LOCAL_DASHBOARD_PORT) {
     merged.ports.dashboard = parseInt(process.env.AMPLIFY_LOCAL_DASHBOARD_PORT, 10);
+  }
+  if (process.env.AMPLIFY_LOCAL_COGNITO_PORT) {
+    merged.ports.cognito = parseInt(process.env.AMPLIFY_LOCAL_COGNITO_PORT, 10);
   }
 
   return merged;

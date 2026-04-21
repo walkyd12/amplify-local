@@ -27,6 +27,7 @@ export function run() {
     .option('--no-storage', 'Disable storage emulator')
     .option('--no-rest', 'Disable REST mock server')
     .option('--no-dashboard', 'Disable the local dashboard UI')
+    .option('--no-cognito', 'Disable the Cognito-shaped auth endpoint')
     .option('--ephemeral', 'Use in-memory DynamoDB (no persistence)')
     .action(async (options) => {
       try {
