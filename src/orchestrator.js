@@ -13,6 +13,7 @@ import { createGraphQLServer } from './services/graphql/server.js';
 import { createStorageServer } from './services/storage/server.js';
 import { createRestServer } from './services/rest/server.js';
 import { createDashboardServer } from './services/dashboard/server.js';
+import { createCognitoServer } from './services/cognito/server.js';
 import { interceptConsole, info as logInfo } from './logger.js';
 
 const STATE_FILE = '.amplify-local/state.json';
@@ -110,7 +111,23 @@ export async function startAll(cliOptions, commandOptions = {}) {
     spinner.succeed(`REST mock server on port ${config.ports.rest}`);
   }
 
-  // 8. Start Dashboard server (unless --no-dashboard)
+  // 8. Start Cognito-shaped server (unless --no-cognito)
+  if (commandOptions.cognito !== false) {
+    spinner.start('Starting Cognito endpoint...');
+    const cognitoApp = createCognitoServer({
+      config,
+      parsedSchema,
+      users: config.users || [],
+    });
+    httpServers.cognito = await listen(cognitoApp, config.ports.cognito);
+    servers.cognito = {
+      port: config.ports.cognito,
+      url: `http://localhost:${config.ports.cognito}`,
+    };
+    spinner.succeed(`Cognito endpoint on port ${config.ports.cognito}`);
+  }
+
+  // 9. Start Dashboard server (unless --no-dashboard)
   if (commandOptions.dashboard !== false) {
     spinner.start('Starting Dashboard server...');
     const dashboardApp = createDashboardServer({

@@ -2,7 +2,7 @@ import { writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { initKeys, signIdToken, signAccessToken } from './jwt.js';
 
-const DEFAULT_POOL_ID = 'us-east-1_localpool01';
+const DEFAULT_POOL_ID = 'local-1_localpool01';
 const DEFAULT_CLIENT_ID = 'local-client-id-000000';
 const DEFAULT_API_KEY = 'local-api-key-000000';
 

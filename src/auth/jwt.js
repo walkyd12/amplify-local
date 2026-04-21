@@ -43,7 +43,10 @@ export async function initKeys(dataDir) {
  */
 export async function signIdToken({ sub, email, groups, poolId, clientId }) {
   const now = Math.floor(Date.now() / 1000);
-  const issuer = `https://cognito-idp.us-east-1.amazonaws.com/${poolId}`;
+  // Cognito pool IDs are `<region>_<pool>`; derive the region so the issuer
+  // matches the hostname the Amplify SDK calls (real or fake).
+  const region = poolId.includes('_') ? poolId.split('_')[0] : 'local-1';
+  const issuer = `https://cognito-idp.${region}.amazonaws.com/${poolId}`;
 
   const jwt = await new SignJWT({
     sub,

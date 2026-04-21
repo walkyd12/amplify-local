@@ -46,11 +46,16 @@ export function writeOutputs(parsedSchema, config) {
 // ---------------------------------------------------------------------------
 
 function buildAuthSection(parsedSchema) {
+  // A fake region is intentional: the Amplify SDK constructs the Cognito
+  // URL from this value (`https://cognito-idp.<region>.amazonaws.com/`).
+  // Using a non-existent region (`local-1`) means a hosts-file override for
+  // that hostname only redirects amplify-local traffic — real Cognito calls
+  // on us-east-1 etc. still resolve normally.
   const section = {
-    user_pool_id: 'local_pool_amplify',
-    aws_region: 'us-east-1',
+    user_pool_id: 'local-1_localpool01',
+    aws_region: 'local-1',
     user_pool_client_id: 'local_client_amplify',
-    identity_pool_id: 'us-east-1:local-identity-pool-amplify',
+    identity_pool_id: 'local-1:local-identity-pool-amplify',
     mfa_configuration: 'NONE',
     mfa_methods: [],
     unauthenticated_identities_enabled: true,
