@@ -98,18 +98,27 @@ at amplify-local.
 
 For repeatable, idempotent setup — and especially for the **2-machine
 topology** where amplify-local runs on a server and a browser (or agent)
-runs on a laptop — use the provided shell scripts.
+runs on a laptop — use the provided shell scripts, or call them via the
+Makefile targets:
+
+```
+make tls-server                        # on the server
+make tls-caddy                         # start Caddy (needs sudo)
+make tls-client SERVER=<ip>            # on each client
+make tls-client SERVER=<ip> CA=<src>   # with explicit CA source
+```
+
+Run `make help` to see every target.
 
 #### Single-machine
 
 Both steps run on the same laptop:
 
 ```bash
-scripts/setup-cognito-tls-server.sh
-# Start Caddy — the script prints the exact command.
-sudo caddy run --config .amplify-local/tls/Caddyfile
+make tls-server
+make tls-caddy   # in another terminal; keeps running
 
-scripts/setup-cognito-tls-client.sh 127.0.0.1 .amplify-local/tls/rootCA.pem
+make tls-client SERVER=127.0.0.1 CA=.amplify-local/tls/rootCA.pem
 ```
 
 #### 2-machine split
@@ -117,8 +126,8 @@ scripts/setup-cognito-tls-client.sh 127.0.0.1 .amplify-local/tls/rootCA.pem
 On the **server** (running amplify-local):
 
 ```bash
-scripts/setup-cognito-tls-server.sh
-sudo caddy run --config .amplify-local/tls/Caddyfile
+make tls-server
+make tls-caddy   # keeps Caddy in the foreground on :443
 ```
 
 This writes `.amplify-local/tls/`:
@@ -131,12 +140,12 @@ On each **client** (laptop, agent, remote worker):
 
 ```bash
 # Simplest: fetch the root CA over scp (default when CA_SOURCE omitted)
-scripts/setup-cognito-tls-client.sh <SERVER_IP>
+make tls-client SERVER=<SERVER_IP>
 
 # Or explicit: http URL / scp URL / local file path
-scripts/setup-cognito-tls-client.sh <SERVER_IP> http://<SERVER_IP>:4501/rootCA.pem
-scripts/setup-cognito-tls-client.sh <SERVER_IP> scp://user@server:.amplify-local/tls/rootCA.pem
-scripts/setup-cognito-tls-client.sh <SERVER_IP> ./rootCA.pem   # after scp'ing it manually
+make tls-client SERVER=<SERVER_IP> CA=http://<SERVER_IP>:4501/rootCA.pem
+make tls-client SERVER=<SERVER_IP> CA=scp://user@server:.amplify-local/tls/rootCA.pem
+make tls-client SERVER=<SERVER_IP> CA=./rootCA.pem   # after scp'ing it manually
 ```
 
 The client script:
