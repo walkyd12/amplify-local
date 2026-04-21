@@ -7,11 +7,21 @@ const DEFAULTS = {
   output: './amplify_outputs.json',
   // Host embedded into amplify_outputs.json for the GraphQL + REST URLs.
   // Override to the server's LAN IP / hostname when consumers access the
-  // emulator from another machine (e.g. `publicHost: '192.168.50.3'` or
-  // `'stocked.local'`). Cognito URLs are NOT rewritten because they must
-  // match the SDK-derived `https://cognito-idp.<aws_region>.amazonaws.com/`
-  // pattern — use the hosts-file + TLS setup instead.
+  // emulator from another machine (e.g. `publicHost: '192.168.50.3'`).
+  // Cognito URLs are NOT rewritten because they must match the
+  // SDK-derived `https://cognito-idp.<aws_region>.amazonaws.com/` pattern —
+  // use the hosts-file + TLS setup instead.
   publicHost: 'localhost',
+  // Explicit URL overrides. Use these when the emulator lives behind an
+  // HTTPS reverse proxy (required when the consuming app itself runs over
+  // https — browsers block http fetches from https pages). Each key, when
+  // set, replaces the URL amplify_outputs.json would otherwise compose
+  // from `publicHost` + the service port.
+  //   urls: {
+  //     graphql: 'https://graphql.local-1.amazonaws.com/graphql',
+  //     rest:    'https://rest.local-1.amazonaws.com',  // appended: /<endpointKey>/
+  //   }
+  urls: {},
   // Enable emitting `identity_pool_id` + `unauthenticated_identities_enabled`
   // in amplify_outputs.json. amplify-local does NOT emulate the Cognito
   // Identity Pool endpoint, so leaving this on causes the Amplify SDK to
@@ -73,6 +83,10 @@ export async function loadConfig(cliOptions = {}) {
       ...DEFAULTS.ports,
       ...(fileConfig.ports || {}),
     },
+    urls: {
+      ...DEFAULTS.urls,
+      ...(fileConfig.urls || {}),
+    },
   };
 
   // Apply CLI overrides
@@ -123,6 +137,12 @@ export async function loadConfig(cliOptions = {}) {
   }
   if (process.env.AMPLIFY_LOCAL_PUBLIC_HOST) {
     merged.publicHost = process.env.AMPLIFY_LOCAL_PUBLIC_HOST;
+  }
+  if (process.env.AMPLIFY_LOCAL_GRAPHQL_URL) {
+    merged.urls.graphql = process.env.AMPLIFY_LOCAL_GRAPHQL_URL;
+  }
+  if (process.env.AMPLIFY_LOCAL_REST_URL) {
+    merged.urls.rest = process.env.AMPLIFY_LOCAL_REST_URL;
   }
   if (process.env.AMPLIFY_LOCAL_EMIT_IDENTITY_POOL === 'true') {
     merged.emitIdentityPool = true;
