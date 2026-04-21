@@ -94,6 +94,65 @@ cognito-idp.local-1.amazonaws.com {
 `sudo caddy run` to bind 443. Browser traffic to Cognito now terminates
 at amplify-local.
 
+### Automation scripts (Linux + macOS)
+
+For repeatable, idempotent setup — and especially for the **2-machine
+topology** where amplify-local runs on a server and a browser (or agent)
+runs on a laptop — use the provided shell scripts.
+
+#### Single-machine
+
+Both steps run on the same laptop:
+
+```bash
+scripts/setup-cognito-tls-server.sh
+# Start Caddy — the script prints the exact command.
+sudo caddy run --config .amplify-local/tls/Caddyfile
+
+scripts/setup-cognito-tls-client.sh 127.0.0.1 .amplify-local/tls/rootCA.pem
+```
+
+#### 2-machine split
+
+On the **server** (running amplify-local):
+
+```bash
+scripts/setup-cognito-tls-server.sh
+sudo caddy run --config .amplify-local/tls/Caddyfile
+```
+
+This writes `.amplify-local/tls/`:
+- `cognito-idp.local-1.amazonaws.com.pem` + `-key.pem` — the leaf cert
+  Caddy serves
+- `rootCA.pem` — the mkcert root CA you need to distribute to every
+  client
+
+On each **client** (laptop, agent, remote worker):
+
+```bash
+# Simplest: fetch the root CA over scp (default when CA_SOURCE omitted)
+scripts/setup-cognito-tls-client.sh <SERVER_IP>
+
+# Or explicit: http URL / scp URL / local file path
+scripts/setup-cognito-tls-client.sh <SERVER_IP> http://<SERVER_IP>:4501/rootCA.pem
+scripts/setup-cognito-tls-client.sh <SERVER_IP> scp://user@server:.amplify-local/tls/rootCA.pem
+scripts/setup-cognito-tls-client.sh <SERVER_IP> ./rootCA.pem   # after scp'ing it manually
+```
+
+The client script:
+- Adds (or replaces) `<SERVER_IP>  cognito-idp.local-1.amazonaws.com`
+  in `/etc/hosts` (sudo).
+- Installs `rootCA.pem` into the OS trust store — macOS keychain,
+  Debian/Ubuntu `update-ca-certificates`, or RHEL/Fedora
+  `update-ca-trust`.
+- Also loads the CA into every Firefox profile it finds (optional;
+  Firefox ignores the OS trust store).
+- Verifies by TLS-probing `https://cognito-idp.local-1.amazonaws.com/`
+  and prints the status.
+
+Re-running either script is safe. If the server IP changes, re-run the
+client script — it rewrites the hosts entry in place.
+
 ## Option B — HTTP proxy for server-side code
 
 For scripts, tests, or any non-browser client that lets you configure a
