@@ -25,13 +25,18 @@ export function createRestServer(config) {
 
   app.use(express.json({ limit: '10mb' }));
 
-  // CORS
-  app.use((_req, res, next) => {
+  // CORS — echo requested headers so AWS SDK v3 / Amplify headers pass.
+  app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
+    const requested = req.headers['access-control-request-headers'];
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      requested ||
+        'Content-Type, Authorization, x-api-key, x-amz-user-agent, amz-sdk-invocation-id, amz-sdk-request'
+    );
     res.setHeader('Access-Control-Max-Age', '86400');
-    if (_req.method === 'OPTIONS') {
+    if (req.method === 'OPTIONS') {
       return res.sendStatus(204);
     }
     next();

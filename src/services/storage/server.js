@@ -118,14 +118,20 @@ export function createStorageServer(config, apiKey) {
   // Ensure storage directory exists
   mkdirSync(storageDir, { recursive: true });
 
-  // CORS for local dev
-  app.use((_req, res, next) => {
+  // CORS for local dev — echo requested headers so AWS SDK v3 / Amplify
+  // headers (`x-amz-user-agent`, `amz-sdk-invocation-id`, etc.) pass.
+  app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, DELETE, HEAD, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key, x-amz-content-sha256, x-amz-date');
+    const requested = req.headers['access-control-request-headers'];
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      requested ||
+        'Content-Type, Authorization, x-api-key, x-amz-content-sha256, x-amz-date, x-amz-user-agent, amz-sdk-invocation-id, amz-sdk-request'
+    );
     res.setHeader('Access-Control-Expose-Headers', 'Content-Length, ETag, x-amz-request-id');
     res.setHeader('Access-Control-Max-Age', '86400');
-    if (_req.method === 'OPTIONS') {
+    if (req.method === 'OPTIONS') {
       return res.sendStatus(204);
     }
     next();

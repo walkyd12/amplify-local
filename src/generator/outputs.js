@@ -110,8 +110,10 @@ function buildDataSection(parsedSchema, config) {
   }
 
   const host = config.publicHost || 'localhost';
+  const graphqlUrl =
+    config.urls?.graphql || `http://${host}:${config.ports.graphql}/graphql`;
   const section = {
-    url: `http://${host}:${config.ports.graphql}/graphql`,
+    url: graphqlUrl,
     aws_region: 'us-east-1',
     default_authorization_type: defaultMode,
     authorization_types: Array.from(additionalModes),
@@ -148,10 +150,13 @@ function buildCustomSection(config) {
   const custom = {};
   const restPort = config.ports.rest;
   const host = config.publicHost || 'localhost';
+  const restBase = config.urls?.rest
+    ? config.urls.rest.replace(/\/$/, '')
+    : `http://${host}:${restPort}`;
 
   for (const endpointKey of Object.keys(config.rest)) {
     custom[endpointKey] = {
-      endpoint: `http://${host}:${restPort}/${endpointKey}/`,
+      endpoint: `${restBase}/${endpointKey}/`,
       region: 'us-east-1',
     };
   }

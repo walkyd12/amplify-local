@@ -130,6 +130,14 @@ export default {
   // consuming app runs on a different machine (2-machine setups).
   publicHost: 'localhost',
 
+  // Explicit URL overrides. Use these when amplify-local lives behind an
+  // HTTPS reverse proxy (required when the consuming app runs over https
+  // — browsers block http fetches from https pages).
+  urls: {
+    // graphql: 'https://graphql.local-1.amazonaws.com/graphql',
+    // rest:    'https://rest.local-1.amazonaws.com',
+  },
+
   // amplify-local does NOT emulate the Cognito Identity Pool endpoint.
   // Leaving `identity_pool_id` in the output stalls the Amplify SDK with
   // `ERR_NAME_NOT_RESOLVED`, so it's omitted by default. Flip on only if
@@ -180,6 +188,8 @@ AMPLIFY_LOCAL_REST_PORT      AMPLIFY_LOCAL_COGNITO_PORT
 AMPLIFY_LOCAL_DASHBOARD_PORT AMPLIFY_LOCAL_DYNAMODB_PORT
 
 AMPLIFY_LOCAL_PUBLIC_HOST      # host for graphql/rest URLs in amplify_outputs.json
+AMPLIFY_LOCAL_GRAPHQL_URL      # full https URL override when behind a reverse proxy
+AMPLIFY_LOCAL_REST_URL         # full https URL override when behind a reverse proxy
 AMPLIFY_LOCAL_EMIT_IDENTITY_POOL=true   # opt in to identity-pool fields
 ```
 
