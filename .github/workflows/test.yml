@@ -1,0 +1,53 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    name: unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run test:unit
+
+  integration:
+    name: integration tests
+    runs-on: ubuntu-latest
+    services:
+      dynamodb:
+        image: amazon/dynamodb-local:latest
+        ports:
+          - 8000:8000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - name: Wait for DynamoDB Local
+        run: |
+          for i in {1..30}; do
+            if curl -sf -X POST http://127.0.0.1:8000/ \
+              -H 'Content-Type: application/x-amz-json-1.0' \
+              -H 'X-Amz-Target: DynamoDB_20120810.ListTables' \
+              -H 'Authorization: AWS4-HMAC-SHA256 Credential=local/20200101/us-east-1/dynamodb/aws4_request' \
+              -d '{}' > /dev/null; then
+              echo "DynamoDB Local ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "DynamoDB Local failed to become ready"
+          exit 1
+      - run: npm run test:integration
+        env:
+          AMPLIFY_LOCAL_DYNAMODB_PORT: '8000'
