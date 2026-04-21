@@ -26,6 +26,7 @@ export function run() {
     .description('Start all local emulated services')
     .option('--no-storage', 'Disable storage emulator')
     .option('--no-rest', 'Disable REST mock server')
+    .option('--no-dashboard', 'Disable the local dashboard UI')
     .option('--ephemeral', 'Use in-memory DynamoDB (no persistence)')
     .action(async (options) => {
       try {

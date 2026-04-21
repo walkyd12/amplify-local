@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>amplify-local dashboard</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #161922;
+      --panel-2: #1d212c;
+      --border: #2a2f3d;
+      --text: #e4e6eb;
+      --dim: #8a93a6;
+      --green: #4ade80;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --cyan: #38bdf8;
+      --mono: ui-monospace, SFMono-Regular, "Cascadia Code", Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--panel);
+    }
+    header h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 0.02em; }
+    header .meta { font-size: 12px; color: var(--dim); font-family: var(--mono); }
+    nav {
+      display: flex;
+      gap: 2px;
+      padding: 0 24px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+    nav button {
+      background: none;
+      border: none;
+      color: var(--dim);
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 13px;
+      border-bottom: 2px solid transparent;
+      font-family: inherit;
+    }
+    nav button.active { color: var(--text); border-bottom-color: var(--cyan); }
+    nav button:hover { color: var(--text); }
+    main { padding: 24px; max-width: 1200px; }
+    .tab { display: none; }
+    .tab.active { display: block; }
+    h2 { margin: 0 0 12px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--dim); }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+    .kv { display: flex; justify-content: space-between; padding: 6px 0; font-family: var(--mono); font-size: 12px; }
+    .kv:not(:last-child) { border-bottom: 1px solid var(--border); }
+    .kv .k { color: var(--dim); }
+    .kv .v { color: var(--text); word-break: break-all; text-align: right; margin-left: 12px; }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-family: var(--mono);
+      font-weight: 500;
+    }
+    .pill.healthy { background: rgba(74, 222, 128, 0.15); color: var(--green); }
+    .pill.unhealthy { background: rgba(251, 191, 36, 0.15); color: var(--yellow); }
+    .pill.unreachable { background: rgba(248, 113, 113, 0.15); color: var(--red); }
+    table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th { color: var(--dim); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+    tr:hover td { background: var(--panel-2); }
+    pre {
+      background: var(--panel-2);
+      padding: 10px;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 11px;
+      overflow-x: auto;
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .logline { font-family: var(--mono); font-size: 11.5px; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+    .logline .ts { color: var(--dim); margin-right: 8px; }
+    .logline .level { display: inline-block; min-width: 48px; font-weight: 600; }
+    .logline .level.info { color: var(--cyan); }
+    .logline .level.warn { color: var(--yellow); }
+    .logline .level.error { color: var(--red); }
+    .logline .scope { color: var(--dim); margin-right: 8px; }
+    .empty { color: var(--dim); font-style: italic; padding: 20px 0; text-align: center; }
+    button.btn {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 4px 10px;
+      font-size: 11px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: var(--mono);
+    }
+    button.btn:hover { background: var(--border); }
+    button.btn.on { background: var(--cyan); color: var(--bg); border-color: var(--cyan); }
+    .row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+    .tag { font-family: var(--mono); font-size: 11px; padding: 1px 6px; border-radius: 3px; background: var(--panel-2); color: var(--dim); }
+    .tag.managed { background: rgba(56, 189, 248, 0.15); color: var(--cyan); }
+    details { margin: 4px 0; }
+    details summary { cursor: pointer; font-family: var(--mono); font-size: 12px; color: var(--dim); }
+    details[open] summary { color: var(--text); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>amplify-local</h1>
+    <div class="meta" id="meta">loading…</div>
+  </header>
+  <nav>
+    <button class="active" data-tab="health">Health</button>
+    <button data-tab="tokens">Tokens</button>
+    <button data-tab="schema">Schema</button>
+    <button data-tab="tables">Tables</button>
+    <button data-tab="logs">Logs</button>
+  </nav>
+  <main>
+    <section class="tab active" id="tab-health">
+      <h2>Services</h2>
+      <div class="grid" id="health-grid"><div class="card empty">loading…</div></div>
+    </section>
+
+    <section class="tab" id="tab-tokens">
+      <h2>Auth</h2>
+      <div class="card" id="tokens-content">loading…</div>
+    </section>
+
+    <section class="tab" id="tab-schema">
+      <h2>Models</h2>
+      <div id="schema-content">loading…</div>
+    </section>
+
+    <section class="tab" id="tab-tables">
+      <div class="row">
+        <h2 style="margin: 0;">Tables</h2>
+        <button class="btn" id="refresh-tables">refresh</button>
+      </div>
+      <div id="tables-content">loading…</div>
+    </section>
+
+    <section class="tab" id="tab-logs">
+      <div class="row">
+        <h2 style="margin: 0;">Log buffer</h2>
+        <button class="btn on" id="logs-follow">live</button>
+        <button class="btn" id="logs-clear">clear view</button>
+        <span class="tag" id="logs-count">0 entries</span>
+      </div>
+      <div class="card" id="logs-content"><div class="empty">no entries yet</div></div>
+    </section>
+  </main>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+// --- tab switching ---------------------------------------------------------
+for (const btn of $$('nav button')) {
+  btn.addEventListener('click', () => {
+    $$('nav button').forEach(b => b.classList.toggle('active', b === btn));
+    const tab = btn.dataset.tab;
+    $$('.tab').forEach(t => t.classList.toggle('active', t.id === 'tab-' + tab));
+  });
+}
+
+// --- health ----------------------------------------------------------------
+async function refreshHealth() {
+  try {
+    const r = await fetch('/api/health');
+    const data = await r.json();
+    $('#meta').textContent = `pid ${data.pid} · up ${fmtUptime(data.uptimeSeconds)}`;
+    const grid = $('#health-grid');
+    grid.innerHTML = '';
+    for (const [name, info] of Object.entries(data.services || {})) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="kv"><span class="k">service</span><span class="v">${escapeHtml(name)}</span></div>
+        <div class="kv"><span class="k">url</span><span class="v">${escapeHtml(info.url || info.endpoint || '')}</span></div>
+        <div class="kv"><span class="k">status</span><span class="v"><span class="pill ${info.status}">${info.status}</span></span></div>
+      `;
+      grid.appendChild(card);
+    }
+  } catch (err) {
+    $('#health-grid').innerHTML = `<div class="card empty">error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// --- tokens ----------------------------------------------------------------
+async function refreshTokens() {
+  const r = await fetch('/api/tokens');
+  const data = await r.json();
+  const el = $('#tokens-content');
+  let html = `<div class="kv"><span class="k">API key</span><span class="v">${escapeHtml(data.apiKey || '')}</span></div>`;
+  const users = data.users || {};
+  if (Object.keys(users).length === 0) {
+    html += '<div class="empty">No test users configured.<br>Add <code>users:</code> to amplify-local.config.js to generate JWTs.</div>';
+  } else {
+    for (const [email, toks] of Object.entries(users)) {
+      html += `<details><summary>${escapeHtml(email)}</summary>`;
+      html += `<div class="kv"><span class="k">idToken</span><span class="v" style="max-width: 600px;"><pre>${escapeHtml(toks.idToken)}</pre></span></div>`;
+      html += `<div class="kv"><span class="k">accessToken</span><span class="v" style="max-width: 600px;"><pre>${escapeHtml(toks.accessToken)}</pre></span></div>`;
+      html += '</details>';
+    }
+  }
+  el.innerHTML = html;
+}
+
+// --- schema ----------------------------------------------------------------
+async function refreshSchema() {
+  const r = await fetch('/api/schema');
+  const data = await r.json();
+  const el = $('#schema-content');
+  let html = '';
+  for (const [name, model] of Object.entries(data.models)) {
+    html += `<div class="card"><h2>${escapeHtml(name)}</h2>`;
+    html += '<table><thead><tr><th>field</th><th>type</th><th>required</th><th>notes</th></tr></thead><tbody>';
+    for (const [f, info] of Object.entries(model.fields)) {
+      const notes = info.array ? 'array' : '';
+      html += `<tr><td>${escapeHtml(f)}</td><td>${escapeHtml(info.type)}</td><td>${info.required ? 'yes' : ''}</td><td>${notes}</td></tr>`;
+    }
+    for (const [f, rel] of Object.entries(model.relationships || {})) {
+      html += `<tr><td>${escapeHtml(f)}</td><td>${escapeHtml(rel.type)} → ${escapeHtml(rel.model)}</td><td></td><td>${(rel.references || []).join(', ')}</td></tr>`;
+    }
+    for (const [f, vals] of Object.entries(model.enums || {})) {
+      html += `<tr><td>${escapeHtml(f)}</td><td>enum</td><td></td><td>${(vals || []).map(escapeHtml).join(' | ')}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    if ((model.secondaryIndexes || []).length > 0) {
+      html += '<div style="margin-top: 12px;"><span class="tag">indexes</span> ';
+      html += (model.secondaryIndexes || []).map(i => `${escapeHtml(i.indexName)} (${escapeHtml(i.partitionKey)})`).join(', ');
+      html += '</div>';
+    }
+    if ((model.authorization || []).length > 0) {
+      html += '<div style="margin-top: 8px;"><span class="tag">auth</span> ';
+      html += model.authorization.map(r => {
+        let s = r.strategy + (r.provider ? '/' + r.provider : '');
+        if (r.groups) s += ' [' + r.groups.join(',') + ']';
+        s += ' {' + (r.operations || []).join(',') + '}';
+        return escapeHtml(s);
+      }).join(' · ');
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  el.innerHTML = html || '<div class="empty">no models parsed</div>';
+}
+
+// --- tables ----------------------------------------------------------------
+let tablesLoaded = false;
+async function refreshTables() {
+  const r = await fetch('/api/tables');
+  if (!r.ok) {
+    $('#tables-content').innerHTML = `<div class="card empty">error: ${r.status}</div>`;
+    return;
+  }
+  const data = await r.json();
+  const el = $('#tables-content');
+  if ((data.tables || []).length === 0) {
+    el.innerHTML = '<div class="empty">no tables</div>';
+    return;
+  }
+  let html = '';
+  for (const t of data.tables) {
+    const tag = t.managed ? '<span class="tag managed">managed</span>' : '<span class="tag">external</span>';
+    html += `<div class="card"><div class="row"><h2 style="margin:0;">${escapeHtml(t.name)}</h2>${tag}<button class="btn" data-table="${escapeHtml(t.name)}">load</button></div>`;
+    html += `<div id="table-${cssId(t.name)}"></div></div>`;
+  }
+  el.innerHTML = html;
+  for (const b of el.querySelectorAll('button[data-table]')) {
+    b.addEventListener('click', () => loadTableRows(b.dataset.table));
+  }
+  tablesLoaded = true;
+}
+async function loadTableRows(name) {
+  const target = $('#table-' + cssId(name));
+  target.innerHTML = '<div class="empty">loading…</div>';
+  const r = await fetch('/api/tables/' + encodeURIComponent(name) + '?limit=50');
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({ error: 'failed' }));
+    target.innerHTML = `<div class="empty">error: ${escapeHtml(err.error || r.status)}</div>`;
+    return;
+  }
+  const data = await r.json();
+  if (!data.items || data.items.length === 0) {
+    target.innerHTML = `<div class="empty">0 items</div>`;
+    return;
+  }
+  const keys = Array.from(new Set(data.items.flatMap(i => Object.keys(i))));
+  let html = `<div class="tag">${data.count} item(s)</div><table><thead><tr>`;
+  for (const k of keys) html += `<th>${escapeHtml(k)}</th>`;
+  html += '</tr></thead><tbody>';
+  for (const item of data.items) {
+    html += '<tr>';
+    for (const k of keys) {
+      const v = item[k];
+      const s = v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
+      html += `<td>${escapeHtml(s)}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  target.innerHTML = html;
+}
+$('#refresh-tables').addEventListener('click', refreshTables);
+
+// --- logs ------------------------------------------------------------------
+let lastSeq = 0;
+let follow = true;
+$('#logs-follow').addEventListener('click', () => {
+  follow = !follow;
+  $('#logs-follow').classList.toggle('on', follow);
+});
+$('#logs-clear').addEventListener('click', () => {
+  $('#logs-content').innerHTML = '<div class="empty">view cleared · new entries will appear</div>';
+  $('#logs-count').textContent = '0 entries shown';
+});
+async function refreshLogs() {
+  if (!follow) return;
+  try {
+    const r = await fetch('/api/logs?since=' + lastSeq);
+    const data = await r.json();
+    if (data.entries && data.entries.length > 0) {
+      const content = $('#logs-content');
+      if (content.querySelector('.empty')) content.innerHTML = '';
+      for (const e of data.entries) {
+        const div = document.createElement('div');
+        div.className = 'logline';
+        div.innerHTML = `<span class="ts">${escapeHtml(e.ts.replace('T', ' ').replace('Z', ''))}</span>` +
+          `<span class="level ${escapeHtml(e.level)}">${escapeHtml(e.level)}</span>` +
+          `<span class="scope">[${escapeHtml(e.scope)}]</span>` +
+          `<span>${escapeHtml(e.message)}</span>`;
+        content.appendChild(div);
+      }
+      // Cap the DOM at 1000 lines so the page stays responsive.
+      while (content.children.length > 1000) content.removeChild(content.firstChild);
+      content.scrollTop = content.scrollHeight;
+      $('#logs-count').textContent = `${content.children.length} entries shown`;
+    }
+    if (typeof data.lastSeq === 'number') lastSeq = data.lastSeq;
+  } catch { /* ignore transient errors */ }
+}
+
+// --- utils -----------------------------------------------------------------
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function cssId(s) { return s.replace(/[^a-zA-Z0-9_-]/g, '_'); }
+function fmtUptime(s) {
+  if (s < 60) return s + 's';
+  if (s < 3600) return Math.floor(s/60) + 'm ' + (s%60) + 's';
+  return Math.floor(s/3600) + 'h ' + Math.floor((s%3600)/60) + 'm';
+}
+
+// --- boot + loop -----------------------------------------------------------
+refreshHealth(); refreshTokens(); refreshSchema(); refreshTables();
+setInterval(refreshHealth, 3000);
+setInterval(refreshLogs, 1500);
+setInterval(() => { if ($('#tab-tables.active')) refreshTables(); }, 10000);
+</script>
+</body>
+</html>

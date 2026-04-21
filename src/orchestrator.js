@@ -12,6 +12,8 @@ import { createAuthEnforcer } from './auth/enforcer.js';
 import { createGraphQLServer } from './services/graphql/server.js';
 import { createStorageServer } from './services/storage/server.js';
 import { createRestServer } from './services/rest/server.js';
+import { createDashboardServer } from './services/dashboard/server.js';
+import { interceptConsole, info as logInfo } from './logger.js';
 
 const STATE_FILE = '.amplify-local/state.json';
 
@@ -35,6 +37,11 @@ const STATE_FILE = '.amplify-local/state.json';
 export async function startAll(cliOptions, commandOptions = {}) {
   const servers = {};
   const httpServers = {};
+
+  // Route console output into the ring buffer before anything else starts,
+  // so the dashboard log tab picks up every startup message.
+  interceptConsole();
+  logInfo('orchestrator', 'amplify-local startup');
 
   // 1. Load config
   const spinner = ora('Loading configuration...').start();
@@ -103,12 +110,31 @@ export async function startAll(cliOptions, commandOptions = {}) {
     spinner.succeed(`REST mock server on port ${config.ports.rest}`);
   }
 
-  // 8. Write amplify_outputs.json
+  // 8. Start Dashboard server (unless --no-dashboard)
+  if (commandOptions.dashboard !== false) {
+    spinner.start('Starting Dashboard server...');
+    const dashboardApp = createDashboardServer({
+      config,
+      parsedSchema,
+      services: servers,
+      apiKey,
+      dynamoClient,
+      docClient,
+    });
+    httpServers.dashboard = await listen(dashboardApp, config.ports.dashboard);
+    servers.dashboard = {
+      port: config.ports.dashboard,
+      url: `http://localhost:${config.ports.dashboard}`,
+    };
+    spinner.succeed(`Dashboard on port ${config.ports.dashboard}`);
+  }
+
+  // 9. Write amplify_outputs.json
   spinner.start('Writing amplify_outputs.json...');
   const outputs = writeOutputs(parsedSchema, config);
   spinner.succeed(`Generated ${config.output}`);
 
-  // 9. Write state file
+  // 10. Write state file
   const state = {
     pid: process.pid,
     startedAt: new Date().toISOString(),
@@ -117,7 +143,7 @@ export async function startAll(cliOptions, commandOptions = {}) {
   };
   writeState(state);
 
-  // 10. Print summary
+  // 11. Print summary
   printSummary(servers, tokens, apiKey, config);
 
   // Build cleanup function
