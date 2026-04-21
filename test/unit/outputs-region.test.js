@@ -57,4 +57,20 @@ describe('amplify_outputs.json auth region', () => {
     expect(hosted.data.url).toBe('http://192.168.50.3:4502/graphql');
     expect(hosted.custom.ordersApi.endpoint).toBe('http://192.168.50.3:4504/ordersApi/');
   });
+
+  it('respects urls.graphql + urls.rest full-URL overrides (HTTPS reverse proxy)', async () => {
+    const parsed = await parseSchema(FIXTURE);
+    const https = generateOutputs(parsed, {
+      amplifyDir: FIXTURE,
+      output: '/tmp/amplify_outputs.json',
+      ports: { graphql: 4502, storage: 4503, rest: 4504, dashboard: 4501, cognito: 4500, dynamodb: 8000 },
+      urls: {
+        graphql: 'https://graphql.local-1.amazonaws.com/graphql',
+        rest: 'https://rest.local-1.amazonaws.com',
+      },
+      rest: { ordersApi: { 'GET /': { status: 200, body: {} } } },
+    });
+    expect(https.data.url).toBe('https://graphql.local-1.amazonaws.com/graphql');
+    expect(https.custom.ordersApi.endpoint).toBe('https://rest.local-1.amazonaws.com/ordersApi/');
+  });
 });

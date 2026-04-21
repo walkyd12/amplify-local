@@ -128,13 +128,22 @@ function formatError(error) {
  * Simple CORS middleware for local development.
  */
 function cors() {
-  return (_req, res, next) => {
+  return (req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
+    // Echo the requested headers so browsers + AWS SDK v3 / Amplify
+    // (which add `x-amz-user-agent`, `amz-sdk-invocation-id`,
+    // `amz-sdk-request`, etc.) pass preflight. Falls back to a known-good
+    // list for non-preflight requests that don't advertise headers.
+    const requested = req.headers['access-control-request-headers'];
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      requested ||
+        'Content-Type, Authorization, x-api-key, x-amz-user-agent, amz-sdk-invocation-id, amz-sdk-request'
+    );
     res.setHeader('Access-Control-Max-Age', '86400');
 
-    if (_req.method === 'OPTIONS') {
+    if (req.method === 'OPTIONS') {
       return res.sendStatus(204);
     }
 
