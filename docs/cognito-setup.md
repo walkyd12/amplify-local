@@ -53,13 +53,21 @@ on restart.
 ## Option A — hosts file + TLS (browser, zero code change)
 
 The Amplify SDK builds its Cognito URL from `aws_region` in
-`amplify_outputs.json`: `https://cognito-idp.us-east-1.amazonaws.com/`.
-The SDK does not accept a custom endpoint. So if you want `Auth.signIn()`
-to "just work" from a browser, you need to:
+`amplify_outputs.json`. amplify-local deliberately writes a **fake region**
+(`local-1`) so the resulting hostname is
+`https://cognito-idp.local-1.amazonaws.com/` — an address AWS does not use.
+
+That's the key safety property: hijacking this hostname in `/etc/hosts`
+has zero effect on real Cognito traffic in any other app or browser tab,
+because no real service ever resolves `cognito-idp.local-1.amazonaws.com`.
+Your production app (or anyone else's) using `us-east-1`, `eu-west-1`, etc.
+keeps resolving normally.
+
+Setup:
 
 1. **Map the real Cognito host to localhost** in `/etc/hosts`:
    ```
-   127.0.0.1  cognito-idp.us-east-1.amazonaws.com
+   127.0.0.1  cognito-idp.local-1.amazonaws.com
    ```
 2. **Run amplify-local's Cognito server on port 443 with TLS** that your
    browser trusts.
@@ -70,15 +78,15 @@ The simplest local TLS path is [mkcert](https://github.com/FiloSottile/mkcert):
 mkcert -install
 
 # Generate a cert for the Cognito hostname
-mkcert cognito-idp.us-east-1.amazonaws.com
-# → cognito-idp.us-east-1.amazonaws.com.pem
-# → cognito-idp.us-east-1.amazonaws.com-key.pem
+mkcert cognito-idp.local-1.amazonaws.com
+# → cognito-idp.local-1.amazonaws.com.pem
+# → cognito-idp.local-1.amazonaws.com-key.pem
 ```
 
 Then front the Cognito server with [Caddy](https://caddyserver.com/):
 ```caddyfile
-cognito-idp.us-east-1.amazonaws.com {
-  tls /path/to/cognito-idp.us-east-1.amazonaws.com.pem /path/to/cognito-idp.us-east-1.amazonaws.com-key.pem
+cognito-idp.local-1.amazonaws.com {
+  tls /path/to/cognito-idp.local-1.amazonaws.com.pem /path/to/cognito-idp.local-1.amazonaws.com-key.pem
   reverse_proxy 127.0.0.1:4500
 }
 ```
@@ -127,7 +135,7 @@ need the Cognito URL intercepted, a `hosts` modification can be scripted:
 ```yaml
 - name: Redirect Cognito host
   run: |
-    echo "127.0.0.1  cognito-idp.us-east-1.amazonaws.com" | sudo tee -a /etc/hosts
+    echo "127.0.0.1  cognito-idp.local-1.amazonaws.com" | sudo tee -a /etc/hosts
 - name: Terminate TLS on 443
   run: |
     sudo npx caddy run --config ./Caddyfile &

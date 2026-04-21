@@ -53,7 +53,7 @@ export function createCognitoServer({ config, users, parsedSchema }) {
 
   app.use(express.json({ limit: '2mb', type: ['application/json', 'application/x-amz-json-1.1'] }));
 
-  const poolId = config.authorizationModes?.userPoolId || 'us-east-1_localpool01';
+  const poolId = config.authorizationModes?.userPoolId || 'local-1_localpool01';
   const poolName = poolId.includes('_') ? poolId.split('_')[1] : poolId;
   const clientId = config.authorizationModes?.userPoolClientId || 'local-client-id-000000';
 
