@@ -37,24 +37,54 @@ For the Cognito endpoint + browser zero-code path:
   [mkcert install docs](https://github.com/FiloSottile/mkcert))
 - **caddy** (`brew install caddy`, or `sudo apt install caddy`)
 
-## Quick start (single machine)
+## Install
+
+As a dev dependency in a consuming project:
 
 ```bash
-git clone <this-repo> && cd amplify-local
-make install
+# From npm (once published)
+npm install --save-dev amplify-local
 
-# In one terminal — brings up DynamoDB + all amplify-local services
-make up
+# From GitHub (works today, no npm publish required)
+npm install --save-dev github:walkyd12/amplify-local
 
-# In another terminal — if you want Cognito-shaped sign-in from a browser
-make tls-server
-make tls-caddy
-make tls-client SERVER=127.0.0.1 CA=.amplify-local/tls/rootCA.pem
+# From a branch / tag / SHA
+npm install --save-dev github:walkyd12/amplify-local#feat/some-branch
+```
+
+Then run the CLI via `npx amplify-local <command>` or the Makefile
+targets if you've cloned the repo.
+
+### Hacking on amplify-local itself
+
+```bash
+git clone https://github.com/walkyd12/amplify-local.git
+cd amplify-local
+make install         # npm install under the hood
+```
+
+## Quick start (single machine)
+
+In your Amplify Gen 2 project:
+
+```bash
+npm install --save-dev github:walkyd12/amplify-local
+
+# One terminal — DynamoDB + every amplify-local service
+npx amplify-local docker:start
+npx amplify-local start
+
+# Optional: install the Claude Code skill so engineers using Claude
+# Code get amplify-local-aware help in this repo.
+npx amplify-local install-skill
 ```
 
 Then point your Next.js / React / etc. app at the generated
 `amplify_outputs.json` as usual. `Amplify.configure(outputs)` picks up
 local URLs automatically.
+
+If you also want browser sign-in via the Cognito endpoint (zero code
+changes), follow [docs/cognito-setup.md](docs/cognito-setup.md).
 
 Tear down: `make down`.
 
