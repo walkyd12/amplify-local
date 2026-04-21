@@ -9,6 +9,13 @@ import { createTables } from './dynamo/table-creator.js';
 import { seed, reset } from './dynamo/seeder.js';
 import { startAll, stopAll, checkStatus } from './orchestrator.js';
 import { dockerStart, dockerStop } from './docker.js';
+import { installSkill } from './skill-installer.js';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PKG = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
 
 export function run() {
   const program = new Command();
@@ -257,6 +264,50 @@ export function run() {
           removeVolumes: options.removeVolumes || false,
           verbose: program.opts().verbose || false,
         });
+      } catch (err) {
+        console.error(chalk.red(`Error: ${err.message}`));
+        if (program.opts().verbose) {
+          console.error(err.stack);
+        }
+        process.exit(1);
+      }
+    });
+
+  program
+    .command('install-skill')
+    .description('Install the amplify-local skill for Claude Code')
+    .option('--user', 'Install to ~/.claude/skills/ (per-user)')
+    .option('--project', 'Install to ./.claude/skills/ (default; per-project)')
+    .option('--force', 'Overwrite an existing skill file in place')
+    .option('--dry-run', 'Report what would be written without changing files')
+    .action((options) => {
+      try {
+        const target = options.user ? 'user' : 'project';
+        const result = installSkill({
+          target,
+          force: options.force || false,
+          dryRun: options.dryRun || false,
+          version: PKG.version,
+        });
+
+        console.log();
+        console.log(chalk.bold(`amplify-local skill → ${result.targetDir}`));
+        for (const f of result.installed) {
+          const marker = f.wrote
+            ? chalk.green('✓ wrote')
+            : f.reason === 'unchanged'
+              ? chalk.dim('· unchanged')
+              : chalk.yellow('· skipped');
+          console.log(`  ${marker}  ${f.name}${f.reason ? chalk.dim('  — ' + f.reason) : ''}`);
+        }
+        if (options.dryRun) {
+          console.log();
+          console.log(chalk.dim('  (dry-run: no files were written)'));
+        } else if (result.installed.some((f) => f.wrote)) {
+          console.log();
+          console.log(chalk.dim('  Restart Claude Code to pick up the skill.'));
+        }
+        console.log();
       } catch (err) {
         console.error(chalk.red(`Error: ${err.message}`));
         if (program.opts().verbose) {

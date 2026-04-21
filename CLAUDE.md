@@ -171,9 +171,19 @@ Override via `amplify-local.config.js` (`ports.*`) or env vars
   traffic on `us-east-1` / `eu-west-1` / etc. is unaffected on the
   same machine.
 
+## Claude Code skill
+
+`skills/amplify-local.md` ships with the package. `npx amplify-local
+install-skill` copies it to the consuming repo's `.claude/skills/`
+directory (or `~/.claude/skills/` with `--user`). The installer stamps
+the amplify-local version into the frontmatter so stale copies can be
+detected; `--force` updates in place. Implementation lives in
+`src/skill-installer.js`.
+
 ## Key reference docs
 
 - `docs/cognito-setup.md` — full Cognito endpoint guide (supported
   actions, hosts + TLS setup, single-machine and 2-machine recipes,
   CI runner notes)
 - `README.md` — user-facing quick start + feature overview
+- `skills/amplify-local.md` — Claude Code skill content
